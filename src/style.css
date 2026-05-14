@@ -20,22 +20,3 @@ body{
   overflow: hidden;
 }
 
-.focus-btn{
-  position: fixed;
-  top: 12px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 10;
-  padding: 8px 16px;
-  font: 500 13px system-ui, sans-serif;
-  background: rgba(20, 20, 22, 0.85);
-  color: #eaeaea;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 6px;
-  cursor: pointer;
-  backdrop-filter: blur(4px);
-}
-
-.focus-btn:hover{
-  background: rgba(40, 40, 44, 0.95);
-}

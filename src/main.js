@@ -1,5 +1,8 @@
 
 import app from './app.js';
+import { connect, on, send } from './api.js';
+import { createCommands } from './commands.js';
+import { createCommandsManager } from './commandsManager.js';
 import './style.css';
 function main() {
   console.log("Hello, World!");
@@ -13,29 +16,20 @@ function main() {
     createApp(3, 'umap_subjects_embeddings');
     createApp(4, 'umap_random');
 
-    setupFocusButton();
+    setupSocketBridge();
     animate();
   }
 
-  function setupFocusButton() {
-    const btn = document.createElement('button');
-    btn.textContent = 'Focus random';
-    btn.className = 'focus-btn';
-    btn.addEventListener('click', () => {
-      const ready = apps.filter(a => a.isReady);
-      if (ready.length === 0) return;
-      const sets = ready.map(a => new Set(a.object.getIds()));
-      const [first, ...rest] = sets;
-      const common = [...first].filter(id => rest.every(s => s.has(id)));
-      if (common.length === 0) {
-        console.warn('No ids in common across datasets');
-        return;
-      }
-      const pickedId = common[Math.floor(Math.random() * common.length)];
-      console.log('Focusing on', pickedId);
-      apps.forEach(a => a.object.focusOn(pickedId));
-    });
-    document.body.appendChild(btn);
+  function setupSocketBridge() {
+    connect();
+    const actions = createCommands(apps);
+    const manager = createCommandsManager(actions);
+    manager.register(on);
+    window.api = {
+      send,
+      run: manager.run,
+      list: manager.list,
+    };
   }
 
   function createApp(number, mapType = 'form') {
