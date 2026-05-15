@@ -1,3 +1,14 @@
+:root{
+  --bg: #0e0e10;
+  --surface: #18181b;
+  --border: #27272a;
+  --text: #e4e4e7;
+  --text-dim: #71717a;
+  --accent-a: #f59e0b;
+  --accent-b: #3b82f6;
+  --radius: 6px;
+}
+
 *, body, html{
   margin: 0;
   padding: 0;
@@ -9,11 +20,12 @@ body{
   width: 100vw;
   overflow: hidden;
   position: relative;
+  background: var(--bg);
+  color: var(--text);
 }
 
 .container{
   position: absolute;
   overflow: hidden;
+  background: radial-gradient(circle at center, #000000 0%, #5a6161 70%, #baaa76 100%);
 }
-
-

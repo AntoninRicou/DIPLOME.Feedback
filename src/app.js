@@ -10,7 +10,8 @@ function app({ container, id, mapType, state, appIsReady }) {
     console.log("App initialized");
     let canvas, scene, camera, renderer, data, points, pathTrace;
     let targetX = 0, targetY = 0;
-    const LERP = 0.12;
+    let panStartDist = 0;
+    const LERP = 0.015;
     const { clientWidth: width, clientHeight: height } = container;
 
 
@@ -46,10 +47,11 @@ function app({ container, id, mapType, state, appIsReady }) {
 
     function createScene() {
         scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x0e0e10);
+        scene.background = null;
         camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
         camera.position.z = .2;
-        renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+        renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+        renderer.setClearColor(0x000000, 0);
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.setSize(width, height, false);
         renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -80,7 +82,16 @@ function app({ container, id, mapType, state, appIsReady }) {
         camera.position.x += (targetX - camera.position.x) * LERP;
         camera.position.y += (targetY - camera.position.y) * LERP;
         if (points) points.tick(dt);
-        if (pathTrace) pathTrace.tick();
+        if (pathTrace) {
+            let panProgress = 1;
+            if (panStartDist > 1e-4) {
+                const dx = targetX - camera.position.x;
+                const dy = targetY - camera.position.y;
+                const remaining = Math.hypot(dx, dy);
+                panProgress = Math.max(0, Math.min(1, 1 - remaining / panStartDist));
+            }
+            pathTrace.tick(panProgress);
+        }
         renderer.render(scene, camera);
     }
 
@@ -88,6 +99,7 @@ function app({ container, id, mapType, state, appIsReady }) {
         if (!points) return;
         const pos = points.getPosition(pointId);
         if (!pos) return;
+        panStartDist = Math.hypot(pos.x - camera.position.x, pos.y - camera.position.y);
         targetX = pos.x;
         targetY = pos.y;
         points.highlight(pointId);
@@ -97,8 +109,8 @@ function app({ container, id, mapType, state, appIsReady }) {
         return points ? points.ids : [];
     }
 
-    function addPathSegment(fromId, toId) {
-        if (pathTrace) pathTrace.addSegment(fromId, toId);
+    function addPathSegment(fromId, toId, color) {
+        if (pathTrace) pathTrace.addSegment(fromId, toId, color);
     }
 
     function clearPath() {
