@@ -87,6 +87,10 @@ export function createStateManager({ containers, getApps, initial = 'split' }) {
 
   function goTo(name, { duration = 1.5 } = {}) {
     if (!STATES[name]) return;
+    if (name === 'disperse' && currentName === 'single') {
+      console.warn('[state] disperse blocked while in single');
+      return;
+    }
     transition = {
       from: clone(current),
       to: clone(STATES[name]),

@@ -1,13 +1,14 @@
 import * as THREE from 'three';
 import { loadMapData } from './mapData.js';
 import { createPointsManager } from './components/pointsManager.js';
+import { createPathTrace } from './components/pathTrace.js';
 
 const SPREAD = 5;
 const dataCache = new Map();
 
 function app({ container, id, mapType, state, appIsReady }) {
     console.log("App initialized");
-    let canvas, scene, camera, renderer, data, points;
+    let canvas, scene, camera, renderer, data, points, pathTrace;
     let targetX = 0, targetY = 0;
     const LERP = 0.12;
     const { clientWidth: width, clientHeight: height } = container;
@@ -39,6 +40,7 @@ function app({ container, id, mapType, state, appIsReady }) {
 
         data = mapData;
         points = createPointsManager({ scene, data, atlas: atlasMeta, atlasTexture });
+        pathTrace = createPathTrace({ scene, points });
         appIsReady(id);
     }
 
@@ -78,6 +80,7 @@ function app({ container, id, mapType, state, appIsReady }) {
         camera.position.x += (targetX - camera.position.x) * LERP;
         camera.position.y += (targetY - camera.position.y) * LERP;
         if (points) points.tick(dt);
+        if (pathTrace) pathTrace.tick();
         renderer.render(scene, camera);
     }
 
@@ -92,6 +95,14 @@ function app({ container, id, mapType, state, appIsReady }) {
 
     function getIds() {
         return points ? points.ids : [];
+    }
+
+    function addPathSegment(fromId, toId) {
+        if (pathTrace) pathTrace.addSegment(fromId, toId);
+    }
+
+    function clearPath() {
+        if (pathTrace) pathTrace.clear();
     }
 
     async function morphTo(targetMapType, duration = 1) {
@@ -129,7 +140,7 @@ function app({ container, id, mapType, state, appIsReady }) {
 
     setup();
 
-    return { animate, focusOn, getIds, resize, setCameraZ, setDriftTarget, morphTo, enterDisperse, exitDisperse }
+    return { animate, focusOn, getIds, addPathSegment, clearPath, resize, setCameraZ, setDriftTarget, morphTo, enterDisperse, exitDisperse }
 }
 
 export default app;

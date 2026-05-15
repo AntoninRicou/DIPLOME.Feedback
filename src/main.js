@@ -4,12 +4,22 @@ import { connect, on, send } from './api.js';
 import { createCommands } from './commands.js';
 import { createCommandsManager } from './commandsManager.js';
 import { createStateManager } from './stateManager.js';
+import { createPathPlayer } from './pathPlayer.js';
 import './style.css';
 function main() {
   console.log("Hello, World!");
   const apps = [];
   const containers = [1, 2, 3, 4].map(n => document.getElementById(`container-${n}`));
   const stateManager = createStateManager({ containers, getApps: () => apps });
+  const pathPlayer = createPathPlayer({ stepInterval: 1.2 });
+
+  pathPlayer.subscribe(({ prevId, id }) => {
+    apps.forEach(a => {
+      if (!a.isReady) return;
+      a.object.focusOn(id);
+      if (prevId) a.object.addPathSegment(prevId, id);
+    });
+  });
 
   function setup() {
     console.log("Setting up the application...");
@@ -25,7 +35,7 @@ function main() {
 
   function setupSocketBridge() {
     connect();
-    const actions = createCommands(apps, stateManager);
+    const actions = createCommands(apps, stateManager, pathPlayer);
     const manager = createCommandsManager(actions);
     manager.register(on);
     window.api = {
@@ -59,6 +69,7 @@ function main() {
     lastTime = now;
 
     stateManager.tick(dt);
+    pathPlayer.tick(dt);
 
     apps.forEach(app => {
       if (app.isReady) {

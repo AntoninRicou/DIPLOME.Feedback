@@ -12,6 +12,18 @@ export function createCommandsManager(actions) {
     'set-state'(payload) {
       actions.setState(payload);
     },
+
+    'path-simulate'(payload) {
+      actions.simulatePath(payload?.count ?? 10);
+    },
+
+    'path-start'(payload) {
+      actions.startPath(payload?.ids);
+    },
+
+    'path-clear'() {
+      actions.clearPaths();
+    },
   };
 
   return {
