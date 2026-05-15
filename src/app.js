@@ -14,6 +14,7 @@ function app({ container, id, mapType, state, appIsReady }) {
     let panProgress = 1;
     const LERP = 0.015;
     const { clientWidth: width, clientHeight: height } = container;
+    const viewAspect = (width && height) ? width / height : 1;
 
 
     async function setup() {
@@ -41,7 +42,7 @@ function app({ container, id, mapType, state, appIsReady }) {
         atlasTexture.generateMipmaps = true;
 
         data = mapData;
-        points = createPointsManager({ scene, data, atlas: atlasMeta, atlasTexture });
+        points = createPointsManager({ scene, data, atlas: atlasMeta, atlasTexture, viewAspect });
         pathTrace = createPathTrace({ scene, points });
         appIsReady(id);
     }
@@ -138,11 +139,13 @@ function app({ container, id, mapType, state, appIsReady }) {
         }
         const rangeX = maxX - minX || 1;
         const rangeY = maxY - minY || 1;
+        const cx = (minX + maxX) / 2;
+        const cy = (minY + maxY) / 2;
+        const scaleX = (SPREAD * viewAspect) / rangeX;
+        const scaleY = SPREAD / rangeY;
         const byId = new Map();
         for (const p of other.points) {
-            const nx = (p.x - minX) / rangeX;
-            const ny = (p.y - minY) / rangeY;
-            byId.set(p.id, { x: (nx - 0.5) * SPREAD, y: (ny - 0.5) * SPREAD });
+            byId.set(p.id, { x: (p.x - cx) * scaleX, y: (p.y - cy) * scaleY });
         }
         points.morphTo(byId, duration);
     }

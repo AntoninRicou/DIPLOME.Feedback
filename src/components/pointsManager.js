@@ -21,7 +21,7 @@ const FRAGMENT_SHADER = /* glsl */ `
     }
 `;
 
-function createPointsManager({ scene, data, atlas, atlasTexture, spread = 5, thumbSize = 0.04 }) {
+function createPointsManager({ scene, data, atlas, atlasTexture, spread = 5, thumbSize = 0.04, viewAspect = 1 }) {
     const count = data.points.length;
     const geometry = new THREE.PlaneGeometry(1, 1);
 
@@ -41,6 +41,10 @@ function createPointsManager({ scene, data, atlas, atlasTexture, spread = 5, thu
     }
     const rangeX = maxX - minX || 1;
     const rangeY = maxY - minY || 1;
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+    const scaleX = (spread * viewAspect) / rangeX;
+    const scaleY = spread / rangeY;
 
     const material = new THREE.ShaderMaterial({
         uniforms: { uAtlas: { value: atlasTexture } },
@@ -58,10 +62,8 @@ function createPointsManager({ scene, data, atlas, atlasTexture, spread = 5, thu
         ids[i] = p.id;
         idToIndex.set(p.id, i);
 
-        const nx = (p.x - minX) / rangeX;
-        const ny = (p.y - minY) / rangeY;
-        const wx = (nx - 0.5) * spread;
-        const wy = (ny - 0.5) * spread;
+        const wx = (p.x - cx) * scaleX;
+        const wy = (p.y - cy) * scaleY;
 
         if (!meta) {
             positions[i] = { x: wx, y: wy, sx: 0, sy: 0 };
