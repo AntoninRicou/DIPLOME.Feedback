@@ -11,6 +11,7 @@ function app({ container, id, mapType, state, appIsReady }) {
     let canvas, scene, camera, renderer, data, points, pathTrace;
     let targetX = 0, targetY = 0;
     let panStartDist = 0;
+    let panProgress = 1;
     const LERP = 0.015;
     const { clientWidth: width, clientHeight: height } = container;
 
@@ -82,16 +83,15 @@ function app({ container, id, mapType, state, appIsReady }) {
         camera.position.x += (targetX - camera.position.x) * LERP;
         camera.position.y += (targetY - camera.position.y) * LERP;
         if (points) points.tick(dt);
-        if (pathTrace) {
-            let panProgress = 1;
-            if (panStartDist > 1e-4) {
-                const dx = targetX - camera.position.x;
-                const dy = targetY - camera.position.y;
-                const remaining = Math.hypot(dx, dy);
-                panProgress = Math.max(0, Math.min(1, 1 - remaining / panStartDist));
-            }
-            pathTrace.tick(panProgress);
+        if (panStartDist > 1e-4) {
+            const dx = targetX - camera.position.x;
+            const dy = targetY - camera.position.y;
+            const remaining = Math.hypot(dx, dy);
+            panProgress = Math.max(0, Math.min(1, 1 - remaining / panStartDist));
+        } else {
+            panProgress = 1;
         }
+        if (pathTrace) pathTrace.tick(panProgress);
         renderer.render(scene, camera);
     }
 
@@ -100,9 +100,14 @@ function app({ container, id, mapType, state, appIsReady }) {
         const pos = points.getPosition(pointId);
         if (!pos) return;
         panStartDist = Math.hypot(pos.x - camera.position.x, pos.y - camera.position.y);
+        panProgress = panStartDist > 1e-4 ? 0 : 1;
         targetX = pos.x;
         targetY = pos.y;
         points.highlight(pointId);
+    }
+
+    function getPanProgress() {
+        return panProgress;
     }
 
     function getIds() {
@@ -152,7 +157,7 @@ function app({ container, id, mapType, state, appIsReady }) {
 
     setup();
 
-    return { animate, focusOn, getIds, addPathSegment, clearPath, resize, setCameraZ, setDriftTarget, morphTo, enterDisperse, exitDisperse }
+    return { animate, focusOn, getIds, addPathSegment, clearPath, resize, setCameraZ, setDriftTarget, morphTo, enterDisperse, exitDisperse, getPanProgress }
 }
 
 export default app;

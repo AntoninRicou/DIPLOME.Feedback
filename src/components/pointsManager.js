@@ -97,8 +97,61 @@ function createPointsManager({ scene, data, atlas, atlasTexture, spread = 5, thu
 
     scene.add(mesh);
 
+    const GLOW_VS = /* glsl */ `
+        varying vec2 vUv;
+        void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+    `;
+    const GLOW_FS = /* glsl */ `
+        precision highp float;
+        varying vec2 vUv;
+        uniform vec3 uColor;
+        uniform float uOpacity;
+        void main() {
+            float d = distance(vUv, vec2(0.5));
+            float a = pow(1.0 - smoothstep(0.0, 0.5, d), 1.6);
+            gl_FragColor = vec4(uColor, a * uOpacity);
+        }
+    `;
+
+    const activeGlowMat = new THREE.ShaderMaterial({
+        vertexShader: GLOW_VS,
+        fragmentShader: GLOW_FS,
+        uniforms: {
+            uColor: { value: new THREE.Color(0xffffff) },
+            uOpacity: { value: 1.0 },
+        },
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+    });
+    const activeGlow = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), activeGlowMat);
+    activeGlow.visible = false;
+    activeGlow.frustumCulled = false;
+    scene.add(activeGlow);
+
     const HIGHLIGHT_SCALE = 1.6;
+    const ACTIVE_GLOW_FACTOR = 2.2;
     let highlighted = -1;
+
+    function updateActiveGlow() {
+        if (highlighted < 0) {
+            activeGlow.visible = false;
+            return;
+        }
+        const pos = positions[highlighted];
+        if (!pos) {
+            activeGlow.visible = false;
+            return;
+        }
+        const base = Math.max(pos.sx, pos.sy) || 0.04;
+        const size = base * HIGHLIGHT_SCALE * ACTIVE_GLOW_FACTOR;
+        activeGlow.position.set(pos.x, pos.y, 0.004);
+        activeGlow.scale.set(size, size, 1);
+        activeGlow.visible = true;
+    }
 
     const morphStart = positions.map(p => ({ x: p.x, y: p.y }));
     const morphTarget = positions.map(p => ({ x: p.x, y: p.y }));
@@ -125,6 +178,7 @@ function createPointsManager({ scene, data, atlas, atlasTexture, spread = 5, thu
         if (i >= 0) setInstance(i, HIGHLIGHT_SCALE, 0.01);
         highlighted = i;
         mesh.instanceMatrix.needsUpdate = true;
+        updateActiveGlow();
     }
 
     function getPosition(id) {
@@ -281,6 +335,7 @@ function createPointsManager({ scene, data, atlas, atlasTexture, spread = 5, thu
     function tick(dt) {
         if (disperse.active) {
             tickDisperse(dt);
+            updateActiveGlow();
             return;
         }
         if (!morphing) return;
@@ -293,6 +348,7 @@ function createPointsManager({ scene, data, atlas, atlasTexture, spread = 5, thu
             writeInstance(i);
         }
         mesh.instanceMatrix.needsUpdate = true;
+        updateActiveGlow();
         if (t >= 1) morphing = false;
     }
 

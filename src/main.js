@@ -12,7 +12,13 @@ function main() {
   const apps = [];
   const containers = [1, 2, 3, 4].map(n => document.getElementById(`container-${n}`));
   const stateManager = createStateManager({ containers, getApps: () => apps });
-  const pathPlayer = createPathPlayer({ stepInterval: 2.5 });
+  const pathPlayer = createPathPlayer({
+    stepInterval: 2.5,
+    dwellTime: 1.0,
+    arriveThreshold: 0.9,
+    maxStepWait: 8,
+    isSettled: (th) => apps.every(a => !a.isReady || a.object.getPanProgress() >= th),
+  });
 
   pathPlayer.subscribe(({ prevId, id }) => {
     const color = prevId ? pickRandomColor() : null;
