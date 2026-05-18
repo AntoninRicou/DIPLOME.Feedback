@@ -34,8 +34,15 @@ export function createCommands(apps, stateManager, pathPlayer) {
   }
 
   function setState(payload) {
-    if (!payload?.name) return;
-    stateManager.goTo(payload.name, { duration: payload.duration });
+    if (!payload?.name) {
+      console.warn('[set-state] dropped: missing name', payload);
+      return;
+    }
+    console.log('[set-state] received', payload);
+    // Wire carries duration in ms (PHASE4); stateManager runs on seconds.
+    const opts = {};
+    if (typeof payload.duration === 'number') opts.duration = payload.duration / 1000;
+    stateManager.goTo(payload.name, opts);
   }
 
   function startPath(ids) {

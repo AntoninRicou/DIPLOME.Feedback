@@ -1,4 +1,6 @@
 const SPREAD = 5;
+const CAMERA_FOV_DEG = 75;
+const OVERVIEW_Z = SPREAD / (2 * Math.tan((CAMERA_FOV_DEG * Math.PI) / 360));
 const ALL_MAP_TYPES = ['projection_2d', 'umap_book', 'umap_subjects_embeddings', 'umap_random'];
 const SINGLE_HOLD = 4;
 const SINGLE_MORPH = 1;
@@ -31,7 +33,7 @@ const STATES = {
       { x: 0,   y: 0.5, w: 0.5, h: 0.5 },
       { x: 0.5, y: 0.5, w: 0.5, h: 0.5 },
     ],
-    cameraZ: 3.5,
+    cameraZ: OVERVIEW_Z,
     drift: { mode: 'none', amplitude: 0 },
   },
   disperse: {
@@ -86,11 +88,17 @@ export function createStateManager({ containers, getApps, initial = 'split' }) {
   }
 
   function goTo(name, { duration = 1.5 } = {}) {
-    if (!STATES[name]) return;
+    if (!STATES[name]) {
+      console.warn(
+        `[state] unknown state "${name}" — known: ${Object.keys(STATES).join(', ')}`,
+      );
+      return;
+    }
     if (name === 'disperse' && currentName === 'single') {
       console.warn('[state] disperse blocked while in single');
       return;
     }
+    console.log(`[state] goTo ${currentName} -> ${name}`);
     transition = {
       from: clone(current),
       to: clone(STATES[name]),
@@ -115,6 +123,12 @@ export function createStateManager({ containers, getApps, initial = 'split' }) {
       if (host?.isReady && host.object.enterDisperse) host.object.enterDisperse();
     } else {
       if (host?.isReady && host.object.exitDisperse) host.object.exitDisperse();
+    }
+
+    if (name === 'overview') {
+      apps.forEach(a => {
+        if (a.isReady) a.object.setDriftTarget(0, 0);
+      });
     }
   }
 

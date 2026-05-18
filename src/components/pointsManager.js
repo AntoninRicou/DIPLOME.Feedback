@@ -21,7 +21,7 @@ const FRAGMENT_SHADER = /* glsl */ `
     }
 `;
 
-function createPointsManager({ scene, data, atlas, atlasTexture, spread = 5, thumbSize = 0.04, viewAspect = 1 }) {
+function createPointsManager({ scene, data, atlas, atlasTexture, spread = 5, thumbSize = 0.04, viewAspect = 1, canvasId = '?' }) {
     const count = data.points.length;
     const geometry = new THREE.PlaneGeometry(1, 1);
 
@@ -175,12 +175,15 @@ function createPointsManager({ scene, data, atlas, atlasTexture, spread = 5, thu
     }
 
     function highlight(id) {
+        const prev = highlighted;
         if (highlighted >= 0) setInstance(highlighted, 1, 0);
         const i = idToIndex.has(id) ? idToIndex.get(id) : -1;
         if (i >= 0) setInstance(i, HIGHLIGHT_SCALE, 0.01);
         highlighted = i;
         mesh.instanceMatrix.needsUpdate = true;
         updateActiveGlow();
+        const status = i < 0 ? 'NOT_FOUND' : (prev === i ? 'unchanged' : 'CHANGED');
+        console.log(`[highlight:${canvasId}] ${id} index ${prev} -> ${i} ${status}`);
     }
 
     function getPosition(id) {

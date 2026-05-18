@@ -42,7 +42,7 @@ function app({ container, id, mapType, state, appIsReady }) {
         atlasTexture.generateMipmaps = true;
 
         data = mapData;
-        points = createPointsManager({ scene, data, atlas: atlasMeta, atlasTexture, viewAspect });
+        points = createPointsManager({ scene, data, atlas: atlasMeta, atlasTexture, viewAspect, canvasId: id });
         pathTrace = createPathTrace({ scene, points });
         appIsReady(id);
     }
@@ -97,13 +97,22 @@ function app({ container, id, mapType, state, appIsReady }) {
     }
 
     function focusOn(pointId) {
-        if (!points) return;
+        if (!points) {
+            console.log(`[focusOn:${id}] SKIP ${pointId} — points not ready`);
+            return;
+        }
         const pos = points.getPosition(pointId);
-        if (!pos) return;
+        if (!pos) {
+            console.log(`[focusOn:${id}] SKIP ${pointId} — id not in dataset`);
+            return;
+        }
+        const prevX = targetX, prevY = targetY;
         panStartDist = Math.hypot(pos.x - camera.position.x, pos.y - camera.position.y);
         panProgress = panStartDist > 1e-4 ? 0 : 1;
         targetX = pos.x;
         targetY = pos.y;
+        const changed = targetX !== prevX || targetY !== prevY;
+        console.log(`[focusOn:${id}] ${pointId} target ${changed ? 'CHANGED' : 'unchanged'} (${prevX.toFixed(3)},${prevY.toFixed(3)}) -> (${targetX.toFixed(3)},${targetY.toFixed(3)}) panStartDist=${panStartDist.toFixed(3)}`);
         points.highlight(pointId);
     }
 
