@@ -24,6 +24,15 @@ export function createCommandsManager(actions) {
     'path-clear'() {
       actions.clearPaths();
     },
+
+    'path-segment'(payload) {
+      actions.addPathSegment(payload?.fromId, payload?.toId);
+    },
+
+    'path-truncate'(payload) {
+      if (typeof payload?.keepCount !== 'number') return;
+      actions.truncatePath(payload.keepCount);
+    },
   };
 
   return {

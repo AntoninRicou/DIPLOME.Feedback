@@ -128,8 +128,20 @@ function app({ container, id, mapType, state, appIsReady }) {
         if (pathTrace) pathTrace.addSegment(fromId, toId, color);
     }
 
+    function truncatePath(keepCount) {
+        if (pathTrace) pathTrace.truncate(keepCount);
+    }
+
     function clearPath() {
         if (pathTrace) pathTrace.clear();
+    }
+
+    function resetFocus() {
+        targetX = 0;
+        targetY = 0;
+        panStartDist = 0;
+        panProgress = 1;
+        if (points && points.highlight) points.highlight(null);
     }
 
     async function morphTo(targetMapType, duration = 1) {
@@ -169,7 +181,7 @@ function app({ container, id, mapType, state, appIsReady }) {
 
     setup();
 
-    return { animate, focusOn, getIds, addPathSegment, clearPath, resize, setCameraZ, setDriftTarget, morphTo, enterDisperse, exitDisperse, getPanProgress }
+    return { animate, focusOn, getIds, addPathSegment, truncatePath, clearPath, resetFocus, resize, setCameraZ, setDriftTarget, morphTo, enterDisperse, exitDisperse, getPanProgress }
 }
 
 export default app;

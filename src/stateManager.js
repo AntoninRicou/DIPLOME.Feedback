@@ -8,9 +8,9 @@ const SINGLE_MORPH = 1;
 const STATES = {
   split: {
     rects: [
-      { x: 0,   y: 0,   w: 0.5, h: 0.5 },
-      { x: 0.5, y: 0,   w: 0.5, h: 0.5 },
-      { x: 0,   y: 0.5, w: 0.5, h: 0.5 },
+      { x: 0, y: 0, w: 0.5, h: 0.5 },
+      { x: 0.5, y: 0, w: 0.5, h: 0.5 },
+      { x: 0, y: 0.5, w: 0.5, h: 0.5 },
       { x: 0.5, y: 0.5, w: 0.5, h: 0.5 },
     ],
     cameraZ: 0.2,
@@ -28,9 +28,9 @@ const STATES = {
   },
   overview: {
     rects: [
-      { x: 0,   y: 0,   w: 0.5, h: 0.5 },
-      { x: 0.5, y: 0,   w: 0.5, h: 0.5 },
-      { x: 0,   y: 0.5, w: 0.5, h: 0.5 },
+      { x: 0, y: 0, w: 0.5, h: 0.5 },
+      { x: 0.5, y: 0, w: 0.5, h: 0.5 },
+      { x: 0, y: 0.5, w: 0.5, h: 0.5 },
       { x: 0.5, y: 0.5, w: 0.5, h: 0.5 },
     ],
     cameraZ: OVERVIEW_Z,
@@ -68,7 +68,7 @@ const lerpRect = (a, b, t) => ({
 const easeInOutCubic = t =>
   t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 
-export function createStateManager({ containers, getApps, initial = 'split' }) {
+export function createStateManager({ containers, getApps, initial = 'single' }) {
   let current = clone(STATES[initial]);
   let transition = null;
   let currentName = initial;
@@ -115,6 +115,9 @@ export function createStateManager({ containers, getApps, initial = 'split' }) {
       singleActive = true;
       singleTimer = SINGLE_HOLD;
       singleCurrentMap = host?.mapType ?? 'projection_2d';
+      apps.forEach(a => {
+        if (a.isReady && a.object.resetFocus) a.object.resetFocus();
+      });
     } else {
       singleActive = false;
     }

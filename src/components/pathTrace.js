@@ -65,6 +65,16 @@ export function createPathTrace({ scene, points }) {
         segments.push({ fromId, toId, color, progress: 0 });
     }
 
+    function truncate(keepCount) {
+        const safe = Math.max(0, Math.min(keepCount | 0, segments.length));
+        if (safe === segments.length) return;
+        segments.length = safe;
+        if (segments.length > 0) segments[segments.length - 1].progress = 1;
+        visited.clear();
+        glowMesh.count = 0;
+        glowMesh.instanceMatrix.needsUpdate = true;
+    }
+
     function clear() {
         segments.length = 0;
         visited.clear();
@@ -124,5 +134,5 @@ export function createPathTrace({ scene, points }) {
         glowMesh.instanceMatrix.needsUpdate = true;
     }
 
-    return { addSegment, clear, tick, get count() { return segments.length; } };
+    return { addSegment, truncate, clear, tick, get count() { return segments.length; } };
 }

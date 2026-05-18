@@ -1,3 +1,5 @@
+import { pickRandom as pickRandomColor } from './pathColors.js';
+
 export function createCommands(apps, stateManager, pathPlayer) {
   function focusOnId(pointId) {
     if (!pointId) return;
@@ -64,5 +66,19 @@ export function createCommands(apps, stateManager, pathPlayer) {
     });
   }
 
-  return { focusOnId, pickRandomCommonId, setState, startPath, simulatePath, clearPaths };
+  function addPathSegment(fromId, toId) {
+    if (!fromId || !toId) return;
+    const color = pickRandomColor();
+    apps.forEach(a => {
+      if (a.isReady) a.object.addPathSegment(fromId, toId, color);
+    });
+  }
+
+  function truncatePath(keepCount) {
+    apps.forEach(a => {
+      if (a.isReady) a.object.truncatePath(keepCount);
+    });
+  }
+
+  return { focusOnId, pickRandomCommonId, setState, startPath, simulatePath, clearPaths, addPathSegment, truncatePath };
 }
