@@ -80,5 +80,16 @@ export function createCommands(apps, stateManager, pathPlayer) {
     });
   }
 
-  return { focusOnId, pickRandomCommonId, setState, startPath, simulatePath, clearPaths, addPathSegment, truncatePath };
+  function setMask(payload) {
+    const el = document.getElementById('render-mask');
+    if (!el) return;
+    const op = Math.max(0, Math.min(1, Number(payload?.opacity)));
+    const dur = Math.max(0, Number(payload?.duration) || 0);
+    el.style.transition = dur === 0 ? 'none' : `opacity ${dur}ms linear`;
+    // Force reflow so the new transition value applies before the opacity change.
+    void el.offsetWidth;
+    el.style.opacity = String(op);
+  }
+
+  return { focusOnId, pickRandomCommonId, setState, startPath, simulatePath, clearPaths, addPathSegment, truncatePath, setMask };
 }

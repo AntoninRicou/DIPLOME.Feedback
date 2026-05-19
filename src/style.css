@@ -20,3 +20,12 @@ body {
   overflow: hidden;
   background: radial-gradient(circle at center, #000000 0%, #5a6161 85%, #baaa76 100%);
 }
+
+#render-mask {
+  position: fixed;
+  inset: 0;
+  background: #1a1a1a;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 1000;
+}

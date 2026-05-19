@@ -33,6 +33,10 @@ export function createCommandsManager(actions) {
       if (typeof payload?.keepCount !== 'number') return;
       actions.truncatePath(payload.keepCount);
     },
+
+    'set-mask'(payload) {
+      actions.setMask(payload);
+    },
   };
 
   return {
