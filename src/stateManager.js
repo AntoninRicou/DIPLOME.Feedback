@@ -121,6 +121,11 @@ export function createStateManager({ containers, getApps, initial = 'single' }) 
       });
     } else {
       singleActive = false;
+      // Restore canvas-1 to its original map; demo cycle may have morphed it away.
+      if (host?.isReady && host.object.morphTo && singleCurrentMap && singleCurrentMap !== host.mapType) {
+        host.object.morphTo(host.mapType, SINGLE_MORPH);
+        singleCurrentMap = host.mapType;
+      }
     }
 
     if (name === 'disperse') {
