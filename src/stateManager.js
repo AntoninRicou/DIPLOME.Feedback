@@ -85,6 +85,7 @@ export function createStateManager({ containers, getApps, initial = 'single' }) 
       c.style.width = (r.w * 100) + '%';
       c.style.height = (r.h * 100) + '%';
     });
+    document.body.dataset.state = currentName;
   }
 
   function goTo(name, { duration = 1.5 } = {}) {

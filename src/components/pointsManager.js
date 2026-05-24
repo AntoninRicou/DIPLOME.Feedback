@@ -53,7 +53,8 @@ function createPointsManager({ scene, data, atlas, atlasTexture, spread = 5, thu
     });
 
     const mesh = new THREE.InstancedMesh(geometry, material, count);
-    mesh.frustumCulled = false;
+    //mesh.visible = false;
+    // mesh.frustumCulled = false; cacher
 
     let missing = 0;
     for (let i = 0; i < count; i++) {

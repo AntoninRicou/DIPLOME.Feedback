@@ -37,6 +37,10 @@ export function createCommandsManager(actions) {
     'set-mask'(payload) {
       actions.setMask(payload);
     },
+
+    'set-canvas-bg'(payload) {
+      actions.setCanvasBg(payload);
+    },
   };
 
   return {

@@ -14,7 +14,7 @@ function app({ container, id, mapType, state, appIsReady }) {
     let panProgress = 1;
     const LERP = 0.015;
     const { clientWidth: width, clientHeight: height } = container;
-    const viewAspect = (width && height) ? width / height : 1;
+    const viewAspect = window.innerWidth / window.innerHeight;
 
 
     async function setup() {

@@ -91,5 +91,14 @@ export function createCommands(apps, stateManager, pathPlayer) {
     el.style.opacity = String(op);
   }
 
-  return { focusOnId, pickRandomCommonId, setState, startPath, simulatePath, clearPaths, addPathSegment, truncatePath, setMask };
+  function setCanvasBg(payload) {
+    const mode = payload?.mode;
+    if (mode !== 'black' && mode !== 'gradient') {
+      console.warn('[set-canvas-bg] dropped: unknown mode', payload);
+      return;
+    }
+    document.body.dataset.canvasBg = mode;
+  }
+
+  return { focusOnId, pickRandomCommonId, setState, startPath, simulatePath, clearPaths, addPathSegment, truncatePath, setMask, setCanvasBg };
 }
