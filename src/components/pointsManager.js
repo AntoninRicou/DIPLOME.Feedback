@@ -358,56 +358,68 @@ function createPointsManager({ scene, data, atlas, atlasTexture, spread = 5, thu
     }
 
     function tickDisperse(dt) {
-        if (disperse.phase === 'burst') {
-            disperse.burstElapsed += dt;
-            let allDone = true;
-            for (let i = 0; i < count; i++) {
-                const p = disperse.per[i];
-                const raw = (disperse.burstElapsed - p.delay) / p.duration;
-                const progress = Math.max(0, Math.min(1, raw));
-                if (progress < 1) allDone = false;
-                const e = easeOutCubic(progress);
+        // Per-sprite burst↔drift dispatch: each sprite transitions to drift
+        // the moment ITS OWN burst completes, with no global synchronization
+        // gate. Avoids the "every sprite halts together while waiting for the
+        // slowest, then every sprite resumes together" freeze frame that a
+        // single phase switch produced. `disperse.burstElapsed` is the shared
+        // time origin (start of enterDisperse); each sprite's `delay` and
+        // `duration` define its individual burst window.
+        disperse.burstElapsed += dt;
+        const FADE_IN_SEC = 0.6;
+
+        for (let i = 0; i < count; i++) {
+            const p = disperse.per[i];
+            const sinceStart = disperse.burstElapsed - p.delay;
+            const burstProgress = Math.max(0, Math.min(1, sinceStart / p.duration));
+
+            if (burstProgress < 1) {
+                // Burst — unchanged from before. easeOutCubic to spawn position.
+                const e = easeOutCubic(burstProgress);
                 positions[i].x = p.spawnX * e;
                 positions[i].y = p.spawnY * e;
                 writeInstance(i);
+                continue;
             }
-            mesh.instanceMatrix.needsUpdate = true;
-            if (allDone) {
-                for (let i = 0; i < count; i++) {
-                    disperse.anchor.set(ids[i], { x: positions[i].x, y: positions[i].y });
-                }
-                disperse.phase = 'drift';
-                disperse.driftElapsed = 0;
+
+            // Drift — this sprite has reached its spawn position. Anchor is
+            // set lazily on the first drift frame so the global anchor sweep
+            // (previously done when `phase` flipped) is no longer needed.
+            let a = disperse.anchor.get(ids[i]);
+            if (!a) {
+                a = { x: p.spawnX, y: p.spawnY };
+                disperse.anchor.set(ids[i], a);
             }
-            return;
-        }
-        if (disperse.phase === 'drift') {
-            disperse.driftElapsed += dt;
-            const t = disperse.driftElapsed / disperse.cycleSpeed;
-            const wd = disperse.wanderDistance;
-            for (let i = 0; i < count; i++) {
-                const p = disperse.per[i];
-                const a = disperse.anchor.get(ids[i]);
-                if (!a) continue;
-                const dx = (Math.sin(p.fx1 * t + p.px1) + Math.sin(p.fx2 * t + p.px2) - p.baseX) * wd;
-                const dy = (Math.sin(p.fy1 * t + p.py1) + Math.sin(p.fy2 * t + p.py2) - p.baseY) * wd;
-                if (i === primaryHighlightIndex) {
-                    // Hover freeze: keep `positions[i]` exactly where it is so
-                    // the cursor doesn't lose the sprite mid-hover. The drift
-                    // identity `position = anchor + (dx, dy)` is preserved by
-                    // continuously back-solving the anchor — when the user
-                    // moves off, drift resumes from this position with no jump.
-                    a.x = positions[i].x - dx;
-                    a.y = positions[i].y - dy;
-                    writeInstance(i);
-                    continue;
-                }
-                positions[i].x = a.x + dx;
-                positions[i].y = a.y + dy;
+
+            // Per-sprite drift time + per-sprite fade-in. Amplitude ramps 0→1
+            // over FADE_IN_SEC so drift velocity grows continuously from the
+            // burst's zero-end velocity. Once past fade-in, drift is identical
+            // to the steady-state behavior (wd = disperse.wanderDistance).
+            const sinceBurstEnd = sinceStart - p.duration;
+            const t = sinceBurstEnd / disperse.cycleSpeed;
+            const fadeIn = Math.min(1, sinceBurstEnd / FADE_IN_SEC);
+            const wd = disperse.wanderDistance * fadeIn;
+            const dx = (Math.sin(p.fx1 * t + p.px1) + Math.sin(p.fx2 * t + p.px2) - p.baseX) * wd;
+            const dy = (Math.sin(p.fy1 * t + p.py1) + Math.sin(p.fy2 * t + p.py2) - p.baseY) * wd;
+
+            if (i === primaryHighlightIndex) {
+                // Hover freeze: keep `positions[i]` exactly where it is so
+                // the cursor doesn't lose the sprite mid-hover. The drift
+                // identity `position = anchor + (dx, dy)` is preserved by
+                // continuously back-solving the anchor — when the user
+                // moves off, drift resumes from this position with no jump.
+                a.x = positions[i].x - dx;
+                a.y = positions[i].y - dy;
                 writeInstance(i);
+                continue;
             }
-            mesh.instanceMatrix.needsUpdate = true;
+
+            positions[i].x = a.x + dx;
+            positions[i].y = a.y + dy;
+            writeInstance(i);
         }
+
+        mesh.instanceMatrix.needsUpdate = true;
     }
 
     function tick(dt) {

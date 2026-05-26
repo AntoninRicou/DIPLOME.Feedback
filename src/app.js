@@ -6,12 +6,21 @@ import { createPathTrace } from './components/pathTrace.js';
 const SPREAD = 5;
 const dataCache = new Map();
 
+const easeInOutCubic = t =>
+    t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
 function app({ container, id, mapType, state, appIsReady }) {
     console.log("App initialized");
     let canvas, scene, camera, renderer, data, points, pathTrace;
     let targetX = 0, targetY = 0;
     let panStartDist = 0;
     let panProgress = 1;
+    // When set, animate() ignores LERP and time-tweens camera.position.{x,y}
+    // from `fromX/Y` to `toX/Y` over `duration`. Used by `set-canvas-zoom` so
+    // the per-canvas lateral pan finishes in lockstep with the cameraZ tween
+    // (instead of LERP's slow exponential tail leaving the camera drifting
+    // for seconds after the zoom completes).
+    let positionTween = null;
     const LERP = 0.015;
     const { clientWidth: width, clientHeight: height } = container;
     const viewAspect = window.innerWidth / window.innerHeight;
@@ -84,22 +93,34 @@ function app({ container, id, mapType, state, appIsReady }) {
 
     function animate(dt = 0) {
         if (!container.clientWidth || !container.clientHeight) return;
-        camera.position.x += (targetX - camera.position.x) * LERP;
-        camera.position.y += (targetY - camera.position.y) * LERP;
-        if (points) points.tick(dt);
-        if (panStartDist > 1e-4) {
-            const dx = targetX - camera.position.x;
-            const dy = targetY - camera.position.y;
-            const remaining = Math.hypot(dx, dy);
-            panProgress = Math.max(0, Math.min(1, 1 - remaining / panStartDist));
+        if (positionTween) {
+            positionTween.t = Math.min(1, positionTween.t + dt / positionTween.duration);
+            const e = easeInOutCubic(positionTween.t);
+            camera.position.x = positionTween.fromX + (positionTween.toX - positionTween.fromX) * e;
+            camera.position.y = positionTween.fromY + (positionTween.toY - positionTween.fromY) * e;
+            panProgress = positionTween.t;
+            if (positionTween.t >= 1) {
+                positionTween = null;
+                panStartDist = 0;
+            }
         } else {
-            panProgress = 1;
+            camera.position.x += (targetX - camera.position.x) * LERP;
+            camera.position.y += (targetY - camera.position.y) * LERP;
+            if (panStartDist > 1e-4) {
+                const dx = targetX - camera.position.x;
+                const dy = targetY - camera.position.y;
+                const remaining = Math.hypot(dx, dy);
+                panProgress = Math.max(0, Math.min(1, 1 - remaining / panStartDist));
+            } else {
+                panProgress = 1;
+            }
         }
+        if (points) points.tick(dt);
         if (pathTrace) pathTrace.tick(panProgress);
         renderer.render(scene, camera);
     }
 
-    function focusOn(pointId) {
+    function focusOn(pointId, { pan = true, panDuration = 0 } = {}) {
         if (!points) {
             console.log(`[focusOn:${id}] SKIP ${pointId} — points not ready`);
             return;
@@ -109,13 +130,39 @@ function app({ container, id, mapType, state, appIsReady }) {
             console.log(`[focusOn:${id}] SKIP ${pointId} — id not in dataset`);
             return;
         }
-        const prevX = targetX, prevY = targetY;
-        panStartDist = Math.hypot(pos.x - camera.position.x, pos.y - camera.position.y);
-        panProgress = panStartDist > 1e-4 ? 0 : 1;
-        targetX = pos.x;
-        targetY = pos.y;
-        const changed = targetX !== prevX || targetY !== prevY;
-        console.log(`[focusOn:${id}] ${pointId} target ${changed ? 'CHANGED' : 'unchanged'} (${prevX.toFixed(3)},${prevY.toFixed(3)}) -> (${targetX.toFixed(3)},${targetY.toFixed(3)}) panStartDist=${panStartDist.toFixed(3)}`);
+        // `pan: false` is used to suppress camera motion while keeping the
+        // perceptual highlight. Set by `commands.focusOnId` when the active
+        // render state is `overview` — overview is read-only on the spatial
+        // side, so focus messages must not retarget the camera.
+        // `panDuration > 0` opts into a time-based positionTween instead of
+        // the LERP-based exponential pan. Used by `set-canvas-zoom` so the
+        // lateral pan finishes together with the cameraZ tween — eliminates
+        // the post-zoom drift caused by LERP's asymptotic tail.
+        if (pan) {
+            const prevX = targetX, prevY = targetY;
+            targetX = pos.x;
+            targetY = pos.y;
+            if (panDuration > 0) {
+                positionTween = {
+                    fromX: camera.position.x,
+                    fromY: camera.position.y,
+                    toX: pos.x,
+                    toY: pos.y,
+                    t: 0,
+                    duration: panDuration,
+                };
+                panStartDist = 0;
+                panProgress = 0;
+            } else {
+                positionTween = null;
+                panStartDist = Math.hypot(pos.x - camera.position.x, pos.y - camera.position.y);
+                panProgress = panStartDist > 1e-4 ? 0 : 1;
+            }
+            const changed = targetX !== prevX || targetY !== prevY;
+            console.log(`[focusOn:${id}] ${pointId} target ${changed ? 'CHANGED' : 'unchanged'} (${prevX.toFixed(3)},${prevY.toFixed(3)}) -> (${targetX.toFixed(3)},${targetY.toFixed(3)}) panDuration=${panDuration}`);
+        } else {
+            console.log(`[focusOn:${id}] ${pointId} highlight-only (pan suppressed)`);
+        }
         points.highlight(pointId);
     }
 

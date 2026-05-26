@@ -45,6 +45,10 @@ export function createCommandsManager(actions) {
     'set-highlight'(payload) {
       actions.setHighlight(payload);
     },
+
+    'set-canvas-zoom'(payload) {
+      actions.setCanvasZoom(payload);
+    },
   };
 
   return {

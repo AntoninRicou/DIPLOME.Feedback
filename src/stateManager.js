@@ -77,6 +77,15 @@ export function createStateManager({ containers, getApps, initial = 'single' }) 
   let singleTimer = 0;
   let singleCurrentMap = null;
 
+  // Per-canvas cameraZ overrides. When `set-canvas-zoom` fires for one
+  // canvas, that canvas's cameraZ is interpolated from the current state's
+  // cameraZ to a target value, independent of the other canvases. Used by
+  // VIEW-3's per-quadrant zoom-in flow: clicking each quadrant's cross
+  // zooms only that canvas, so the standalone visually transitions from
+  // overview to split one canvas at a time. Overrides are cleared on any
+  // `goTo` — the next state takes over uniformly.
+  const canvasOverrides = [null, null, null, null];
+
   function applyLayoutToContainers() {
     containers.forEach((c, i) => {
       const r = current.rects[i];
@@ -109,6 +118,11 @@ export function createStateManager({ containers, getApps, initial = 'single' }) 
     current.drift = { ...STATES[name].drift };
     currentName = name;
     driftTargets = null;
+    // Clear per-canvas cameraZ overrides — the new state controls all
+    // canvases uniformly from here. (Visually a no-op when transitioning
+    // overview → split with duration 0, since override target equals
+    // split's cameraZ.)
+    for (let i = 0; i < canvasOverrides.length; i++) canvasOverrides[i] = null;
     const apps = getApps();
     const host = apps[0];
 
@@ -211,20 +225,42 @@ export function createStateManager({ containers, getApps, initial = 'single' }) 
     }
 
     const apps = getApps();
-    apps.forEach(a => {
+    apps.forEach((a, i) => {
       if (!a.isReady) return;
       if (layoutChanged) a.object.resize();
-      a.object.setCameraZ(current.cameraZ);
+      let z = current.cameraZ;
+      const override = canvasOverrides[i];
+      if (override) {
+        override.t = Math.min(1, override.t + dt / override.duration);
+        const e = easeInOutCubic(override.t);
+        z = override.fromZ + (override.toZ - override.fromZ) * e;
+      }
+      a.object.setCameraZ(z);
     });
 
     applyDrift(dt);
     tickSingleCycle(dt);
   }
 
+  function setCanvasOverride(canvasIndex, targetZ, duration = 0.6) {
+    if (canvasIndex < 0 || canvasIndex >= canvasOverrides.length) return;
+    // Start tween from the current effective cameraZ (state-level value if
+    // no prior override, otherwise the in-flight override target).
+    const prev = canvasOverrides[canvasIndex];
+    const fromZ = prev ? prev.toZ : current.cameraZ;
+    canvasOverrides[canvasIndex] = {
+      fromZ,
+      toZ: targetZ,
+      t: 0,
+      duration: Math.max(0.001, duration),
+    };
+  }
+
   return {
     init: applyLayoutToContainers,
     tick,
     goTo,
+    setCanvasOverride,
     get state() { return currentName; },
     list: () => Object.keys(STATES),
   };

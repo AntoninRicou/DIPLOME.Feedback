@@ -4,8 +4,13 @@ export function createCommands(apps, stateManager, pathPlayer) {
   function focusOnId(pointId) {
     if (!pointId) return;
     console.log('Focusing on', pointId);
+    // Overview is read-only on the spatial side: focus messages drive the
+    // highlight halo for perceptual feedback, but the camera target must
+    // not move. Extends CLAUDE.md's existing post-confirmation rule to any
+    // overview state (pre- or post-confirmation).
+    const pan = stateManager.state !== 'overview';
     apps.forEach(a => {
-      if (a.isReady) a.object.focusOn(pointId);
+      if (a.isReady) a.object.focusOn(pointId, { pan });
     });
   }
 
@@ -109,5 +114,41 @@ export function createCommands(apps, stateManager, pathPlayer) {
     });
   }
 
-  return { focusOnId, pickRandomCommonId, setState, startPath, simulatePath, clearPaths, addPathSegment, truncatePath, setMask, setCanvasBg, setHighlight };
+  // Per-canvas zoom-in: while project is in `overview`, zoom one canvas
+  // toward `split`'s cameraZ AND pan its camera onto the given image.
+  // Used by VIEW-3's per-quadrant cross flow; each call shifts one of the
+  // four canvases from the overview look to a split-like look. After all
+  // four are zoomed the standalone visually matches `split` and the next
+  // VIEW transition can flip the state-name without any visible change.
+  const SPLIT_CAMERA_Z = 0.2;
+  function setCanvasZoom(payload) {
+    const i = payload?.canvasIndex;
+    const id = payload?.imageId;
+    if (typeof i !== 'number' || i < 0 || i > 3 || !id) {
+      console.warn('[set-canvas-zoom] dropped: bad payload', payload);
+      return;
+    }
+    const app = apps[i];
+    // Matches goTo's default transition duration so the per-canvas zoom
+    // feels like the overview transitions elsewhere in the system.
+    const ZOOM_DURATION_SEC = 1.5;
+    stateManager.setCanvasOverride(i, SPLIT_CAMERA_Z, ZOOM_DURATION_SEC);
+    // Also switch this canvas's highlight preset to split's `default`. The
+    // `big` preset (set by goTo('overview') for the whole field) reads
+    // correctly at the overview cameraZ but renders the focused sprite too
+    // large / too glowy once the canvas is at split's cameraZ. Per-canvas
+    // preset keeps the zoomed canvas visually identical to a real split.
+    if (app?.isReady && app.object.setHighlightPreset) {
+      app.object.setHighlightPreset('default');
+    }
+    // Direct call to the canvas's focusOn with `pan: true` so the camera
+    // actually moves — bypasses the focus-in-overview pan suppression
+    // applied by `focusOnId`, since the user explicitly asked for this
+    // canvas to zoom onto the selection. `panDuration` matches the
+    // cameraZ override so lateral pan + zoom converge together; without it
+    // the LERP-based pan would drift for seconds after the zoom completes.
+    if (app?.isReady) app.object.focusOn(id, { pan: true, panDuration: ZOOM_DURATION_SEC });
+  }
+
+  return { focusOnId, pickRandomCommonId, setState, startPath, simulatePath, clearPaths, addPathSegment, truncatePath, setMask, setCanvasBg, setHighlight, setCanvasZoom };
 }
