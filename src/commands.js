@@ -100,5 +100,14 @@ export function createCommands(apps, stateManager, pathPlayer) {
     document.body.dataset.canvasBg = mode;
   }
 
-  return { focusOnId, pickRandomCommonId, setState, startPath, simulatePath, clearPaths, addPathSegment, truncatePath, setMask, setCanvasBg };
+  // Transient perception channel: highlight a single id (or clear with null).
+  // No camera move, no state change, no persistence — purely a visual hint.
+  function setHighlight(payload) {
+    const id = payload && typeof payload.id === 'string' ? payload.id : null;
+    apps.forEach(a => {
+      if (a.isReady && a.object.highlight) a.object.highlight(id);
+    });
+  }
+
+  return { focusOnId, pickRandomCommonId, setState, startPath, simulatePath, clearPaths, addPathSegment, truncatePath, setMask, setCanvasBg, setHighlight };
 }

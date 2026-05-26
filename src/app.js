@@ -44,6 +44,9 @@ function app({ container, id, mapType, state, appIsReady }) {
         data = mapData;
         points = createPointsManager({ scene, data, atlas: atlasMeta, atlasTexture, viewAspect, canvasId: id });
         pathTrace = createPathTrace({ scene, points });
+        if (pendingHighlightPreset && points.setHighlightPreset) {
+            points.setHighlightPreset(pendingHighlightPreset);
+        }
         appIsReady(id);
     }
 
@@ -179,9 +182,88 @@ function app({ container, id, mapType, state, appIsReady }) {
         if (points) points.exitDisperse();
     }
 
+    function highlight(pointId) {
+        if (points) points.highlight(pointId);
+    }
+
+    // Preset can be set by stateManager.goTo before this app's points have
+    // finished loading. Cache the latest name; setup() will apply it once
+    // points exists, so the preset survives the boot race.
+    let pendingHighlightPreset = null;
+    function setHighlightPreset(name) {
+        pendingHighlightPreset = name;
+        if (points && points.setHighlightPreset) points.setHighlightPreset(name);
+    }
+
+    let pickingEnabled = false;
+    function enablePicking({ onHover, onClick, hoverRadiusPx = 36 } = {}) {
+        if (pickingEnabled || !points || !canvas) return;
+        pickingEnabled = true;
+        let lastHoverIndex = -1;
+        const projected = new THREE.Vector3();
+
+        // Screen-space proximity pick. Sprites in `disperse` are tiny and
+        // wandering, so pixel-exact raycasting is brittle. We instead pick
+        // the nearest sprite within `hoverRadiusPx` of the cursor in screen
+        // pixels — generous enough that a fast-moving target stays grabbable.
+        function hitInstance(event) {
+            if (!points || !points.positions) return -1;
+            const rect = canvas.getBoundingClientRect();
+            const mx = event.clientX - rect.left;
+            const my = event.clientY - rect.top;
+            const positions = points.positions;
+            const count = positions.length;
+            let bestIndex = -1;
+            let bestDist = hoverRadiusPx * hoverRadiusPx;
+            for (let i = 0; i < count; i++) {
+                const p = positions[i];
+                if (!p || (p.sx === 0 && p.sy === 0)) continue;
+                projected.set(p.x, p.y, 0).project(camera);
+                if (projected.z < -1 || projected.z > 1) continue;
+                const sx = (projected.x * 0.5 + 0.5) * rect.width;
+                const sy = (1 - (projected.y * 0.5 + 0.5)) * rect.height;
+                const dx = sx - mx;
+                const dy = sy - my;
+                const d2 = dx * dx + dy * dy;
+                if (d2 < bestDist) {
+                    bestDist = d2;
+                    bestIndex = i;
+                }
+            }
+            return bestIndex;
+        }
+
+        function setHover(i) {
+            if (i === lastHoverIndex) return;
+            lastHoverIndex = i;
+            const id = i >= 0 ? points.ids[i] : null;
+            points.highlight(id);
+            canvas.style.cursor = i >= 0 ? 'pointer' : 'default';
+            if (typeof onHover === 'function') onHover(id);
+        }
+
+        canvas.addEventListener('pointermove', (event) => {
+            setHover(hitInstance(event));
+        });
+
+        canvas.addEventListener('pointerleave', () => {
+            setHover(-1);
+        });
+
+        canvas.addEventListener('click', () => {
+            // Reuse the live hover index rather than re-picking on click.
+            // The hover index drives the DOM centered preview, the in-canvas
+            // highlight, and the standalone-project halo — keying the click
+            // off the same value guarantees the picked id matches what the
+            // user is visually pointing at.
+            if (lastHoverIndex < 0) return;
+            if (typeof onClick === 'function') onClick(points.ids[lastHoverIndex]);
+        });
+    }
+
     setup();
 
-    return { animate, focusOn, getIds, addPathSegment, truncatePath, clearPath, resetFocus, resize, setCameraZ, setDriftTarget, morphTo, enterDisperse, exitDisperse, getPanProgress }
+    return { animate, focusOn, getIds, addPathSegment, truncatePath, clearPath, resetFocus, resize, setCameraZ, setDriftTarget, morphTo, enterDisperse, exitDisperse, enablePicking, highlight, setHighlightPreset, getPanProgress }
 }
 
 export default app;

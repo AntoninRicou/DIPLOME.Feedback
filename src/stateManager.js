@@ -112,6 +112,16 @@ export function createStateManager({ containers, getApps, initial = 'single' }) 
     const apps = getApps();
     const host = apps[0];
 
+    // Pick the hover highlight preset per state. Far-camera states (single,
+    // overview, disperse) need the louder preset to read against zoomed-out
+    // sprites; split's close camera reads fine with the default. Not gated
+    // on `isReady` — apps that haven't finished loading cache the preset
+    // and apply it once their pointsManager exists.
+    const highlightPreset = name === 'split' ? 'default' : 'big';
+    apps.forEach(a => {
+      if (a.object.setHighlightPreset) a.object.setHighlightPreset(highlightPreset);
+    });
+
     if (name === 'single') {
       singleActive = true;
       singleTimer = SINGLE_HOLD;

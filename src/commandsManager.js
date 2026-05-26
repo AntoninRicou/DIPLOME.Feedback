@@ -41,6 +41,10 @@ export function createCommandsManager(actions) {
     'set-canvas-bg'(payload) {
       actions.setCanvasBg(payload);
     },
+
+    'set-highlight'(payload) {
+      actions.setHighlight(payload);
+    },
   };
 
   return {

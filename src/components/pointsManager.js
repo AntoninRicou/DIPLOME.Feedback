@@ -135,24 +135,61 @@ function createPointsManager({ scene, data, atlas, atlasTexture, spread = 5, thu
     activeGlow.frustumCulled = false;
     scene.add(activeGlow);
 
-    const HIGHLIGHT_SCALE = 1.6;
-    const ACTIVE_GLOW_FACTOR = 2.2;
-    let highlighted = -1;
+    // Highlight presets per render state. Far-camera states (single, overview,
+    // disperse) need the bigger preset because sprites are tiny on screen;
+    // the close-camera split state reads fine with the original default
+    // values. The active preset is driven by `setHighlightPreset(name)`,
+    // which `stateManager.goTo` calls on every transition.
+    const HIGHLIGHT_PRESETS = {
+        default: { scale: 1.6, glow: 2.2 },
+        big: { scale: 3.4, glow: 5.0 },
+    };
+    let activeHighlightScale = HIGHLIGHT_PRESETS.default.scale;
+    let activeGlowFactor = HIGHLIGHT_PRESETS.default.glow;
+
+    function setHighlightPreset(name) {
+        const preset = HIGHLIGHT_PRESETS[name] || HIGHLIGHT_PRESETS.default;
+        activeHighlightScale = preset.scale;
+        activeGlowFactor = preset.glow;
+    }
+    // Time constant for the per-instance eased highlight transition. Higher
+    // = faster (e.g. 8 reaches ~95% in ~375ms, 10 in ~300ms). Frame-rate
+    // independent — applied via `1 - exp(-rate*dt)` inside the tick. Shared
+    // across presets — only the magnitude differs by state, not the easing.
+    const HIGHLIGHT_RATE = 9;
+    // Per-instance highlight progress [0..1], lerped toward `highlightTargetT`.
+    // 0 = un-highlighted (scale=1), 1 = fully highlighted (scale=HIGHLIGHT_SCALE).
+    const highlightT = new Float32Array(count);
+    const highlightTargetT = new Float32Array(count);
+    // Only the in-flight indices get ticked each frame.
+    const activeHighlights = new Set();
+    // The currently-hovered instance (or -1). `lastPrimaryIndex` keeps the
+    // glow anchored at the previous hover during its fade-out.
+    let primaryHighlightIndex = -1;
+    let lastPrimaryIndex = -1;
 
     function updateActiveGlow() {
-        if (highlighted < 0) {
+        const anchorIndex = primaryHighlightIndex >= 0 ? primaryHighlightIndex : lastPrimaryIndex;
+        if (anchorIndex < 0) {
             activeGlow.visible = false;
             return;
         }
-        const pos = positions[highlighted];
+        const v = highlightT[anchorIndex];
+        if (v < 0.001) {
+            activeGlow.visible = false;
+            return;
+        }
+        const pos = positions[anchorIndex];
         if (!pos) {
             activeGlow.visible = false;
             return;
         }
+        const e = easeInOutCubic(v);
         const base = Math.max(pos.sx, pos.sy) || 0.04;
-        const size = base * HIGHLIGHT_SCALE * ACTIVE_GLOW_FACTOR;
+        const size = base * activeHighlightScale * activeGlowFactor;
         activeGlow.position.set(pos.x, pos.y, 0.004);
-        activeGlow.scale.set(size, size, 1);
+        activeGlow.scale.set(size * e, size * e, 1);
+        activeGlow.material.uniforms.uOpacity.value = e;
         activeGlow.visible = true;
     }
 
@@ -176,15 +213,38 @@ function createPointsManager({ scene, data, atlas, atlasTexture, spread = 5, thu
     }
 
     function highlight(id) {
-        const prev = highlighted;
-        if (highlighted >= 0) setInstance(highlighted, 1, 0);
-        const i = idToIndex.has(id) ? idToIndex.get(id) : -1;
-        if (i >= 0) setInstance(i, HIGHLIGHT_SCALE, 0.01);
-        highlighted = i;
+        const newIndex = id == null ? -1 : (idToIndex.has(id) ? idToIndex.get(id) : -1);
+        if (newIndex === primaryHighlightIndex) return;
+        // Previous primary (if any) starts easing back to 0.
+        if (primaryHighlightIndex >= 0) {
+            highlightTargetT[primaryHighlightIndex] = 0;
+            activeHighlights.add(primaryHighlightIndex);
+            lastPrimaryIndex = primaryHighlightIndex;
+        }
+        // New primary (if any) starts easing in to 1.
+        if (newIndex >= 0) {
+            highlightTargetT[newIndex] = 1;
+            activeHighlights.add(newIndex);
+        }
+        primaryHighlightIndex = newIndex;
+        const status = newIndex < 0 ? (id == null ? 'CLEARED' : 'NOT_FOUND') : 'CHANGED';
+        console.log(`[highlight:${canvasId}] ${id} -> index ${newIndex} ${status}`);
+    }
+
+    function tickHighlights(dt) {
+        if (activeHighlights.size === 0) return;
+        const k = 1 - Math.exp(-HIGHLIGHT_RATE * dt);
+        const toRemove = [];
+        for (const i of activeHighlights) {
+            const target = highlightTargetT[i];
+            let v = highlightT[i] + (target - highlightT[i]) * k;
+            if (Math.abs(v - target) < 0.0008) v = target;
+            highlightT[i] = v;
+            writeInstance(i);
+            if (v === target && target === 0) toRemove.push(i);
+        }
+        for (const i of toRemove) activeHighlights.delete(i);
         mesh.instanceMatrix.needsUpdate = true;
-        updateActiveGlow();
-        const status = i < 0 ? 'NOT_FOUND' : (prev === i ? 'unchanged' : 'CHANGED');
-        console.log(`[highlight:${canvasId}] ${id} index ${prev} -> ${i} ${status}`);
     }
 
     function getPosition(id) {
@@ -225,8 +285,9 @@ function createPointsManager({ scene, data, atlas, atlasTexture, spread = 5, thu
     const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
 
     function writeInstance(i) {
-        const scaleMul = i === highlighted ? HIGHLIGHT_SCALE : 1;
-        const z = i === highlighted ? 0.01 : 0;
+        const e = easeInOutCubic(highlightT[i]);
+        const scaleMul = 1 + (activeHighlightScale - 1) * e;
+        const z = 0.01 * e;
         setInstance(i, scaleMul, z);
     }
 
@@ -330,6 +391,17 @@ function createPointsManager({ scene, data, atlas, atlasTexture, spread = 5, thu
                 if (!a) continue;
                 const dx = (Math.sin(p.fx1 * t + p.px1) + Math.sin(p.fx2 * t + p.px2) - p.baseX) * wd;
                 const dy = (Math.sin(p.fy1 * t + p.py1) + Math.sin(p.fy2 * t + p.py2) - p.baseY) * wd;
+                if (i === primaryHighlightIndex) {
+                    // Hover freeze: keep `positions[i]` exactly where it is so
+                    // the cursor doesn't lose the sprite mid-hover. The drift
+                    // identity `position = anchor + (dx, dy)` is preserved by
+                    // continuously back-solving the anchor — when the user
+                    // moves off, drift resumes from this position with no jump.
+                    a.x = positions[i].x - dx;
+                    a.y = positions[i].y - dy;
+                    writeInstance(i);
+                    continue;
+                }
                 positions[i].x = a.x + dx;
                 positions[i].y = a.y + dy;
                 writeInstance(i);
@@ -341,24 +413,26 @@ function createPointsManager({ scene, data, atlas, atlasTexture, spread = 5, thu
     function tick(dt) {
         if (disperse.active) {
             tickDisperse(dt);
-            updateActiveGlow();
-            return;
+        } else if (morphing) {
+            morphT += dt;
+            const t = Math.min(1, morphT / morphDuration);
+            const e = easeInOutCubic(t);
+            for (let i = 0; i < count; i++) {
+                positions[i].x = morphStart[i].x + (morphTarget[i].x - morphStart[i].x) * e;
+                positions[i].y = morphStart[i].y + (morphTarget[i].y - morphStart[i].y) * e;
+                writeInstance(i);
+            }
+            mesh.instanceMatrix.needsUpdate = true;
+            if (t >= 1) morphing = false;
         }
-        if (!morphing) return;
-        morphT += dt;
-        const t = Math.min(1, morphT / morphDuration);
-        const e = easeInOutCubic(t);
-        for (let i = 0; i < count; i++) {
-            positions[i].x = morphStart[i].x + (morphTarget[i].x - morphStart[i].x) * e;
-            positions[i].y = morphStart[i].y + (morphTarget[i].y - morphStart[i].y) * e;
-            writeInstance(i);
-        }
-        mesh.instanceMatrix.needsUpdate = true;
+        // Always: advance the eased per-instance highlight transitions and
+        // refresh the glow. Runs regardless of disperse/morph state so hover
+        // animations are responsive in `single`, `split`, `overview` too.
+        tickHighlights(dt);
         updateActiveGlow();
-        if (t >= 1) morphing = false;
     }
 
-    return { mesh, geometry, material, ids, highlight, getPosition, morphTo, tick, enterDisperse, exitDisperse };
+    return { mesh, geometry, material, ids, positions, highlight, setHighlightPreset, getPosition, morphTo, tick, enterDisperse, exitDisperse };
 }
 
 export { createPointsManager };
