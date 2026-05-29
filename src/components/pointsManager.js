@@ -119,21 +119,33 @@ function createPointsManager({ scene, data, atlas, atlasTexture, spread = 5, thu
         }
     `;
 
-    const activeGlowMat = new THREE.ShaderMaterial({
-        vertexShader: GLOW_VS,
-        fragmentShader: GLOW_FS,
-        uniforms: {
-            uColor: { value: new THREE.Color(0xffffff) },
-            uOpacity: { value: 1.0 },
-        },
-        transparent: true,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-    });
-    const activeGlow = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), activeGlowMat);
-    activeGlow.visible = false;
-    activeGlow.frustumCulled = false;
-    scene.add(activeGlow);
+    // Two independent glow halos: `focusGlow` follows the persistent focus
+    // highlight (the active central image), `hoverGlow` follows the transient
+    // hover highlight. Separate meshes (each with its own uOpacity uniform) so
+    // the centre can keep glowing while a hovered sprite glows at the same
+    // time — the per-instance sprite scale (highlightT[]) already supports
+    // multiple lit sprites; the single halo mesh was the only thing forcing
+    // one-glow-at-a-time, so it's split in two here.
+    function makeGlowMesh() {
+        const mat = new THREE.ShaderMaterial({
+            vertexShader: GLOW_VS,
+            fragmentShader: GLOW_FS,
+            uniforms: {
+                uColor: { value: new THREE.Color(0xffffff) },
+                uOpacity: { value: 1.0 },
+            },
+            transparent: true,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+        });
+        const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat);
+        mesh.visible = false;
+        mesh.frustumCulled = false;
+        scene.add(mesh);
+        return mesh;
+    }
+    const focusGlow = makeGlowMesh();
+    const hoverGlow = makeGlowMesh();
 
     // Highlight presets per render state. Far-camera states (single, overview,
     // disperse) need the bigger preset because sprites are tiny on screen;
@@ -163,34 +175,76 @@ function createPointsManager({ scene, data, atlas, atlasTexture, spread = 5, thu
     const highlightTargetT = new Float32Array(count);
     // Only the in-flight indices get ticked each frame.
     const activeHighlights = new Set();
-    // The currently-hovered instance (or -1). `lastPrimaryIndex` keeps the
-    // glow anchored at the previous hover during its fade-out.
-    let primaryHighlightIndex = -1;
-    let lastPrimaryIndex = -1;
+    // Two highlight tracks. `focusIndex` is the persistent highlight on the
+    // active central image (set via `setFocus`, driven by `focus(id)` on the
+    // wire). `hoverIndex` is the transient hover highlight (set via `setHover`,
+    // driven by `set-highlight`). A sprite is lit (eased toward scale 1) when
+    // it is EITHER index, so the centre keeps glowing while a hovered sprite
+    // also glows. The `last*` indices keep each halo anchored during fade-out.
+    let focusIndex = -1;
+    let hoverIndex = -1;
+    let lastFocusIndex = -1;
+    let lastHoverIndex = -1;
+    const litSet = new Set();
 
-    function updateActiveGlow() {
-        const anchorIndex = primaryHighlightIndex >= 0 ? primaryHighlightIndex : lastPrimaryIndex;
-        if (anchorIndex < 0) {
-            activeGlow.visible = false;
-            return;
+    function idToIdx(id) {
+        return id == null ? -1 : (idToIndex.has(id) ? idToIndex.get(id) : -1);
+    }
+
+    // Recompute per-instance targets from the desired focus/hover pair: ease
+    // toward 1 for indices that are (still) lit by either track, toward 0 for
+    // ones dropping out. Shared by setFocus/setHover so the two tracks never
+    // clobber each other on the shared highlightTargetT array.
+    function applyLit(nextFocus, nextHover) {
+        const next = new Set();
+        if (nextFocus >= 0) next.add(nextFocus);
+        if (nextHover >= 0) next.add(nextHover);
+        for (const i of litSet) {
+            if (!next.has(i)) { highlightTargetT[i] = 0; activeHighlights.add(i); }
         }
+        for (const i of next) {
+            if (!litSet.has(i)) { highlightTargetT[i] = 1; activeHighlights.add(i); }
+        }
+        if (focusIndex >= 0 && nextFocus !== focusIndex) lastFocusIndex = focusIndex;
+        if (hoverIndex >= 0 && nextHover !== hoverIndex) lastHoverIndex = hoverIndex;
+        focusIndex = nextFocus;
+        hoverIndex = nextHover;
+        litSet.clear();
+        for (const i of next) litSet.add(i);
+    }
+
+    function setFocus(id) {
+        const idx = idToIdx(id);
+        if (idx === focusIndex) return;
+        applyLit(idx, hoverIndex);
+    }
+    function setHover(id) {
+        const idx = idToIdx(id);
+        if (idx === hoverIndex) return;
+        applyLit(focusIndex, idx);
+    }
+
+    function updateGlow(glowMesh, anchorIndex) {
+        if (anchorIndex < 0) { glowMesh.visible = false; return; }
         const v = highlightT[anchorIndex];
-        if (v < 0.001) {
-            activeGlow.visible = false;
-            return;
-        }
+        if (v < 0.001) { glowMesh.visible = false; return; }
         const pos = positions[anchorIndex];
-        if (!pos) {
-            activeGlow.visible = false;
-            return;
-        }
+        if (!pos) { glowMesh.visible = false; return; }
         const e = easeInOutCubic(v);
         const base = Math.max(pos.sx, pos.sy) || 0.04;
         const size = base * activeHighlightScale * activeGlowFactor;
-        activeGlow.position.set(pos.x, pos.y, 0.004);
-        activeGlow.scale.set(size * e, size * e, 1);
-        activeGlow.material.uniforms.uOpacity.value = e;
-        activeGlow.visible = true;
+        glowMesh.position.set(pos.x, pos.y, 0.004);
+        glowMesh.scale.set(size * e, size * e, 1);
+        glowMesh.material.uniforms.uOpacity.value = e;
+        glowMesh.visible = true;
+    }
+    function updateActiveGlow() {
+        const fa = focusIndex >= 0 ? focusIndex : lastFocusIndex;
+        const ha = hoverIndex >= 0 ? hoverIndex : lastHoverIndex;
+        updateGlow(focusGlow, fa);
+        // Hide the hover halo when it coincides with the focus halo so the
+        // overlap doesn't read as a single double-bright blob.
+        updateGlow(hoverGlow, (ha >= 0 && ha !== fa) ? ha : -1);
     }
 
     const morphStart = positions.map(p => ({ x: p.x, y: p.y }));
@@ -212,23 +266,12 @@ function createPointsManager({ scene, data, atlas, atlasTexture, spread = 5, thu
         mesh.setMatrixAt(i, dummy.matrix);
     }
 
+    // Backward-compatible alias for the transient hover track. Existing
+    // callers — the `set-highlight` wire handler and the iframe's
+    // `enablePicking` hover — call `highlight`; routing them to the hover
+    // track means they no longer disturb the persistent focus glow.
     function highlight(id) {
-        const newIndex = id == null ? -1 : (idToIndex.has(id) ? idToIndex.get(id) : -1);
-        if (newIndex === primaryHighlightIndex) return;
-        // Previous primary (if any) starts easing back to 0.
-        if (primaryHighlightIndex >= 0) {
-            highlightTargetT[primaryHighlightIndex] = 0;
-            activeHighlights.add(primaryHighlightIndex);
-            lastPrimaryIndex = primaryHighlightIndex;
-        }
-        // New primary (if any) starts easing in to 1.
-        if (newIndex >= 0) {
-            highlightTargetT[newIndex] = 1;
-            activeHighlights.add(newIndex);
-        }
-        primaryHighlightIndex = newIndex;
-        const status = newIndex < 0 ? (id == null ? 'CLEARED' : 'NOT_FOUND') : 'CHANGED';
-        console.log(`[highlight:${canvasId}] ${id} -> index ${newIndex} ${status}`);
+        setHover(id);
     }
 
     function tickHighlights(dt) {
@@ -402,7 +445,7 @@ function createPointsManager({ scene, data, atlas, atlasTexture, spread = 5, thu
             const dx = (Math.sin(p.fx1 * t + p.px1) + Math.sin(p.fx2 * t + p.px2) - p.baseX) * wd;
             const dy = (Math.sin(p.fy1 * t + p.py1) + Math.sin(p.fy2 * t + p.py2) - p.baseY) * wd;
 
-            if (i === primaryHighlightIndex) {
+            if (i === hoverIndex) {
                 // Hover freeze: keep `positions[i]` exactly where it is so
                 // the cursor doesn't lose the sprite mid-hover. The drift
                 // identity `position = anchor + (dx, dy)` is preserved by
@@ -444,7 +487,7 @@ function createPointsManager({ scene, data, atlas, atlasTexture, spread = 5, thu
         updateActiveGlow();
     }
 
-    return { mesh, geometry, material, ids, positions, highlight, setHighlightPreset, getPosition, morphTo, tick, enterDisperse, exitDisperse };
+    return { mesh, geometry, material, ids, positions, highlight, setFocus, setHover, setHighlightPreset, getPosition, morphTo, tick, enterDisperse, exitDisperse };
 }
 
 export { createPointsManager };

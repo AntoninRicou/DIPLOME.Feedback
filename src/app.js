@@ -163,7 +163,10 @@ function app({ container, id, mapType, state, appIsReady }) {
         } else {
             console.log(`[focusOn:${id}] ${pointId} highlight-only (pan suppressed)`);
         }
-        points.highlight(pointId);
+        // Persistent focus track — the active central image stays glowing
+        // until the next focus(id) or a state transition (resetFocus). The
+        // transient hover halo (set-highlight) is independent and overlays.
+        points.setFocus(pointId);
     }
 
     function getPanProgress() {
@@ -191,7 +194,10 @@ function app({ container, id, mapType, state, appIsReady }) {
         targetY = 0;
         panStartDist = 0;
         panProgress = 1;
-        if (points && points.highlight) points.highlight(null);
+        // Clear both tracks on a state transition so neither the persistent
+        // focus glow nor a stale hover halo survives into the new state.
+        if (points && points.setFocus) points.setFocus(null);
+        if (points && points.setHover) points.setHover(null);
     }
 
     async function morphTo(targetMapType, duration = 1) {

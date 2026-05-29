@@ -49,6 +49,10 @@ export function createCommandsManager(actions) {
     'set-canvas-zoom'(payload) {
       actions.setCanvasZoom(payload);
     },
+
+    'set-corner-labels'(payload) {
+      actions.setCornerLabels(payload);
+    },
   };
 
   return {

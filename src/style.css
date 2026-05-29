@@ -58,16 +58,50 @@ body[data-canvas-bg="gradient"] .container {
 #render-mask {
   position: fixed;
   inset: 0;
-  background: #1a1a1a;
+  background: transparent;
   opacity: 0;
   pointer-events: none;
   z-index: 1000;
 }
 
+body[data-canvas-bg="gradient"] #render-mask {
+  background:
+    radial-gradient(ellipse 22% 20% at 25% 25%, rgba(238, 224, 196, 0.7) 0%, rgba(238, 224, 196, 0) 100%),
+    radial-gradient(ellipse 18% 16% at 30% 18%, rgba(220, 205, 175, 0.55) 0%, rgba(220, 205, 175, 0) 100%),
+    radial-gradient(ellipse 24% 22% at 75% 25%, rgba(185, 188, 192, 0.65) 0%, rgba(185, 188, 192, 0) 100%),
+    radial-gradient(ellipse 18% 16% at 72% 32%, rgba(200, 196, 188, 0.5) 0%, rgba(200, 196, 188, 0) 100%),
+    radial-gradient(ellipse 22% 20% at 25% 75%, rgba(215, 208, 192, 0.6) 0%, rgba(215, 208, 192, 0) 100%),
+    radial-gradient(ellipse 18% 16% at 22% 68%, rgba(175, 178, 180, 0.55) 0%, rgba(175, 178, 180, 0) 100%),
+    radial-gradient(ellipse 22% 20% at 75% 75%, rgba(165, 172, 182, 0.65) 0%, rgba(165, 172, 182, 0) 100%),
+    radial-gradient(ellipse 18% 16% at 78% 80%, rgba(195, 188, 175, 0.5) 0%, rgba(195, 188, 175, 0) 100%),
+    radial-gradient(ellipse 28% 24% at 50% 50%, rgba(170, 170, 168, 0.4) 0%, rgba(170, 170, 168, 0) 100%),
+    linear-gradient(170deg, #9aa6b0 0%, #a8a8a4 35%, #b0a896 60%, #8e96a0 85%, #6f7884 100%);
+  background-attachment: fixed;
+  background-size: 100vw 100vh;
+  background-position: 0 0;
+}
+
+body[data-canvas-bg="black"] #render-mask {
+  background:
+    radial-gradient(ellipse 22% 20% at 25% 25%, rgba(65, 60, 60, 0.45) 0%, rgba(65, 60, 60, 0) 100%),
+    radial-gradient(ellipse 18% 16% at 30% 18%, rgba(58, 55, 55, 0.4) 0%, rgba(58, 55, 55, 0) 100%),
+    radial-gradient(ellipse 24% 22% at 75% 25%, rgba(45, 50, 65, 0.55) 0%, rgba(45, 50, 65, 0) 100%),
+    radial-gradient(ellipse 18% 16% at 72% 32%, rgba(58, 58, 60, 0.4) 0%, rgba(58, 58, 60, 0) 100%),
+    radial-gradient(ellipse 22% 20% at 25% 75%, rgba(62, 58, 58, 0.45) 0%, rgba(62, 58, 58, 0) 100%),
+    radial-gradient(ellipse 18% 16% at 22% 68%, rgba(40, 45, 55, 0.5) 0%, rgba(40, 45, 55, 0) 100%),
+    radial-gradient(ellipse 22% 20% at 75% 75%, rgba(35, 42, 60, 0.6) 0%, rgba(35, 42, 60, 0) 100%),
+    radial-gradient(ellipse 18% 16% at 78% 80%, rgba(55, 53, 55, 0.4) 0%, rgba(55, 53, 55, 0) 100%),
+    radial-gradient(ellipse 28% 24% at 50% 50%, rgba(25, 30, 45, 0.45) 0%, rgba(25, 30, 45, 0) 100%),
+    linear-gradient(170deg, #1f2538 0%, #252a3a 35%, #363438 60%, #1c2030 85%, #14182a 100%);
+  background-attachment: fixed;
+  background-size: 100vw 100vh;
+  background-position: 0 0;
+}
+
 body::before {
   content: "";
   position: fixed;
-  inset: 1.5%;
+  inset: 5%;
   pointer-events: none;
   z-index: 5;
   background:
@@ -87,5 +121,48 @@ body::before {
 
 body[data-state="split"]::before,
 body[data-state="overview"]::before {
+  opacity: 1;
+}
+
+/* Component corner labels — Mirror / Trace / Shift / Replay rendered
+   inside each canvas container, positioned at the canvas's outer
+   corner. Mirrors interface_nuxt's `.corner-label` (app.vue) exactly —
+   same content, same colour (#595b54), same warm glow, same monospace
+   uppercase styling — so the labels appear simultaneously on both the
+   interface and the standalone in split / overview states. Visibility
+   gated by `body[data-state]` (same condition as the structural cross
+   on body::before). Each label's `data-position` mirrors its canvas's
+   quadrant in `STATES.split.rects`:
+     canvas-1 = tl = Mirror,  canvas-2 = tr = Trace,
+     canvas-3 = bl = Shift,   canvas-4 = br = Replay.  */
+.corner-label {
+  position: absolute;
+  font-family: monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.18em;
+  color: #595b54;
+  padding: 0.75rem 0.95rem;
+  pointer-events: none;
+  text-transform: uppercase;
+  z-index: 6;
+  opacity: 0;
+  transition: opacity 600ms ease-out;
+  text-shadow:
+    0 0 8px rgba(255, 252, 230, 1),
+    0 0 20px rgba(255, 248, 220, 0.9),
+    0 0 42px rgba(255, 244, 210, 0.6),
+    0 0 75px rgba(255, 240, 200, 0.3);
+}
+.corner-label[data-position="tl"] { top: 0; left: 0; }
+.corner-label[data-position="tr"] { top: 0; right: 0; }
+.corner-label[data-position="bl"] { bottom: 0; left: 0; }
+.corner-label[data-position="br"] { bottom: 0; right: 0; }
+/* Visibility gated by an explicit wire directive (`set-corner-labels`)
+   instead of `body[data-state]`. interface_nuxt holds the labels back
+   until the VIEW_3 caption timer fires so both screens reveal them in
+   sync. Once revealed, the data-attribute persists so the labels stay
+   visible across any subsequent state transitions (split / overview)
+   until the next boot/reset clears it. */
+body[data-corner-labels="visible"] .corner-label {
   opacity: 1;
 }

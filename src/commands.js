@@ -105,6 +105,16 @@ export function createCommands(apps, stateManager, pathPlayer) {
     document.body.dataset.canvasBg = mode;
   }
 
+  // Reveal / hide the four component corner labels (Mirror / Trace /
+  // Shift / Replay) rendered inside each canvas container. Driven by
+  // an explicit wire directive instead of body[data-state] so the
+  // labels can be coordinated with interface_nuxt's own corner-label
+  // fade-in (currently triggered at the end of VIEW_3's caption timer).
+  function setCornerLabels(payload) {
+    const visible = payload?.visible === true;
+    document.body.dataset.cornerLabels = visible ? 'visible' : '';
+  }
+
   // Transient perception channel: highlight a single id (or clear with null).
   // No camera move, no state change, no persistence — purely a visual hint.
   function setHighlight(payload) {
@@ -150,5 +160,5 @@ export function createCommands(apps, stateManager, pathPlayer) {
     if (app?.isReady) app.object.focusOn(id, { pan: true, panDuration: ZOOM_DURATION_SEC });
   }
 
-  return { focusOnId, pickRandomCommonId, setState, startPath, simulatePath, clearPaths, addPathSegment, truncatePath, setMask, setCanvasBg, setHighlight, setCanvasZoom };
+  return { focusOnId, pickRandomCommonId, setState, startPath, simulatePath, clearPaths, addPathSegment, truncatePath, setMask, setCanvasBg, setHighlight, setCanvasZoom, setCornerLabels };
 }
