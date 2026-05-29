@@ -105,8 +105,19 @@ function main() {
         // disperse is a far-camera state where small sprites need amplification.
         if (host.object.setHighlightPreset) host.object.setHighlightPreset('big');
         host.object.enablePicking({
-          onHover(imageId) {
-            window.parent.postMessage({ type: 'view0:image-hover', imageId }, '*');
+          // Tighter than the 36px default — VIEW_2's spawn-on-enter
+          // preview was firing on too many adjacent sprites at once
+          // because the picker grabbed any sprite within a fat radius.
+          // 18px keeps it generous for fast disperse motion without
+          // sweeping in unrelated neighbours.
+          hoverRadiusPx: 9,
+          onHover(imageId, pos) {
+            const payload = { type: 'view0:image-hover', imageId };
+            if (pos && typeof pos.x === 'number' && typeof pos.y === 'number') {
+              payload.x = pos.x;
+              payload.y = pos.y;
+            }
+            window.parent.postMessage(payload, '*');
           },
           onClick(imageId) {
             window.parent.postMessage({ type: 'view0:image-click', imageId }, '*');

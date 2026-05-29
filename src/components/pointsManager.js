@@ -153,8 +153,8 @@ function createPointsManager({ scene, data, atlas, atlasTexture, spread = 5, thu
     // values. The active preset is driven by `setHighlightPreset(name)`,
     // which `stateManager.goTo` calls on every transition.
     const HIGHLIGHT_PRESETS = {
-        default: { scale: 1.6, glow: 2.2 },
-        big: { scale: 3.4, glow: 5.0 },
+        default: { scale: 1.4, glow: 1.8 },
+        big: { scale: 2.8, glow: 3.0 },
     };
     let activeHighlightScale = HIGHLIGHT_PRESETS.default.scale;
     let activeGlowFactor = HIGHLIGHT_PRESETS.default.glow;
@@ -199,11 +199,12 @@ function createPointsManager({ scene, data, atlas, atlasTexture, spread = 5, thu
         const next = new Set();
         if (nextFocus >= 0) next.add(nextFocus);
         if (nextHover >= 0) next.add(nextHover);
+        const changed = [];
         for (const i of litSet) {
-            if (!next.has(i)) { highlightTargetT[i] = 0; activeHighlights.add(i); }
+            if (!next.has(i)) { highlightTargetT[i] = 0; activeHighlights.add(i); changed.push(i); }
         }
         for (const i of next) {
-            if (!litSet.has(i)) { highlightTargetT[i] = 1; activeHighlights.add(i); }
+            if (!litSet.has(i)) { highlightTargetT[i] = 1; activeHighlights.add(i); changed.push(i); }
         }
         if (focusIndex >= 0 && nextFocus !== focusIndex) lastFocusIndex = focusIndex;
         if (hoverIndex >= 0 && nextHover !== hoverIndex) lastHoverIndex = hoverIndex;
@@ -211,6 +212,16 @@ function createPointsManager({ scene, data, atlas, atlasTexture, spread = 5, thu
         hoverIndex = nextHover;
         litSet.clear();
         for (const i of next) litSet.add(i);
+        // Immediate write — `writeInstance` reads the just-updated
+        // hoverIndex/focusIndex/targets, so the z lift applies on the
+        // SAME render frame as the hover event, not the next tick. The
+        // scale still eases via tickHighlights (next tick), but z is
+        // binary so landing it instantly removes the one-frame "is it
+        // above? is it below?" race.
+        if (changed.length > 0) {
+            for (const i of changed) writeInstance(i);
+            mesh.instanceMatrix.needsUpdate = true;
+        }
     }
 
     function setFocus(id) {
@@ -330,7 +341,19 @@ function createPointsManager({ scene, data, atlas, atlasTexture, spread = 5, thu
     function writeInstance(i) {
         const e = easeInOutCubic(highlightT[i]);
         const scaleMul = 1 + (activeHighlightScale - 1) * e;
-        const z = 0.01 * e;
+        // z lift is binary, NOT eased — instant on hover/focus set,
+        // held through fade-out. Hover ranks STRICTLY above focus so a
+        // hovered sprite that overlaps spatially with the focused
+        // central image surfaces unambiguously (both at z=0.01 left
+        // their render order undefined). Identification:
+        //   active focus = focusIndex, or lastFocusIndex during its fade-out;
+        //   active hover = hoverIndex, or lastHoverIndex during its fade-out.
+        const lifted = highlightTargetT[i] > 0 || highlightT[i] > 0.01;
+        let z = 0;
+        if (lifted) {
+            const isFocus = i === focusIndex || (focusIndex < 0 && i === lastFocusIndex);
+            z = isFocus ? 0.01 : 0.02;
+        }
         setInstance(i, scaleMul, z);
     }
 

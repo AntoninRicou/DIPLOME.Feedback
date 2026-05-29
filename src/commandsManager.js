@@ -46,8 +46,16 @@ export function createCommandsManager(actions) {
       actions.setHighlight(payload);
     },
 
+    'set-ghost-path'(payload) {
+      actions.setGhostPath(payload);
+    },
+
     'set-canvas-zoom'(payload) {
       actions.setCanvasZoom(payload);
+    },
+
+    'set-canvas-overview'(payload) {
+      actions.setCanvasOverview(payload);
     },
 
     'set-corner-labels'(payload) {

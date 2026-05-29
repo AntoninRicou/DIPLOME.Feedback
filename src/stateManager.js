@@ -242,18 +242,38 @@ export function createStateManager({ containers, getApps, initial = 'single' }) 
     tickSingleCycle(dt);
   }
 
-  function setCanvasOverride(canvasIndex, targetZ, duration = 0.6) {
+  function setCanvasOverride(canvasIndex, targetZ, duration = 0.6, opts = {}) {
     if (canvasIndex < 0 || canvasIndex >= canvasOverrides.length) return;
-    // Start tween from the current effective cameraZ (state-level value if
-    // no prior override, otherwise the in-flight override target).
+    // Start tween from the current *interpolated* cameraZ. With no prior
+    // override, that's the state-level value. With one in flight, compute
+    // the eased position instead of using `prev.toZ` — otherwise replacing
+    // a mid-flight tween (e.g. rapid VIEW_4 hover changes) snaps cameraZ
+    // back to the previous tween's target before animating to the new one.
     const prev = canvasOverrides[canvasIndex];
-    const fromZ = prev ? prev.toZ : current.cameraZ;
+    let fromZ;
+    if (prev) {
+      const e = easeInOutCubic(prev.t);
+      fromZ = prev.fromZ + (prev.toZ - prev.fromZ) * e;
+    } else {
+      fromZ = current.cameraZ;
+    }
     canvasOverrides[canvasIndex] = {
       fromZ,
       toZ: targetZ,
       t: 0,
       duration: Math.max(0.001, duration),
+      // VIEW_4 hover-unzoom needs `focus(id)` arrivals from history nav
+      // to update the perceptual halo without panning the camera of an
+      // unzoomed canvas. The flag persists past tween completion (the
+      // override record stays pinned at `toZ`), so subsequent focus
+      // emissions consult the latest setter's intent.
+      suppressFocusPan: opts.suppressFocusPan === true,
     };
+  }
+
+  function shouldPanCanvas(canvasIndex) {
+    const o = canvasOverrides[canvasIndex];
+    return !(o && o.suppressFocusPan);
   }
 
   return {
@@ -261,6 +281,7 @@ export function createStateManager({ containers, getApps, initial = 'single' }) 
     tick,
     goTo,
     setCanvasOverride,
+    shouldPanCanvas,
     get state() { return currentName; },
     list: () => Object.keys(STATES),
   };

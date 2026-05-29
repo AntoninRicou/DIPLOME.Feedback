@@ -116,7 +116,7 @@ function app({ container, id, mapType, state, appIsReady }) {
             }
         }
         if (points) points.tick(dt);
-        if (pathTrace) pathTrace.tick(panProgress);
+        if (pathTrace) pathTrace.tick(panProgress, dt);
         renderer.render(scene, camera);
     }
 
@@ -169,6 +169,36 @@ function app({ container, id, mapType, state, appIsReady }) {
         points.setFocus(pointId);
     }
 
+    // Pan the camera to explicit map coordinates without binding a focus
+    // target. Used by `set-canvas-overview` (VIEW_4 hover-unzoom) to slide
+    // a canvas back to map origin while preserving the persistent focus
+    // halo set by the last `focus(id)`. Same positionTween primitive as
+    // `focusOn` so the unzoom pan and the cameraZ override tween converge
+    // together; a new call replaces an in-flight tween from the current
+    // animated camera position (no snap).
+    function setCameraTarget({ x = 0, y = 0, panDuration = 0 } = {}) {
+        const px = Number(x) || 0;
+        const py = Number(y) || 0;
+        targetX = px;
+        targetY = py;
+        if (panDuration > 0) {
+            positionTween = {
+                fromX: camera.position.x,
+                fromY: camera.position.y,
+                toX: px,
+                toY: py,
+                t: 0,
+                duration: panDuration,
+            };
+            panStartDist = 0;
+            panProgress = 0;
+        } else {
+            positionTween = null;
+            panStartDist = Math.hypot(px - camera.position.x, py - camera.position.y);
+            panProgress = panStartDist > 1e-4 ? 0 : 1;
+        }
+    }
+
     function getPanProgress() {
         return panProgress;
     }
@@ -177,8 +207,8 @@ function app({ container, id, mapType, state, appIsReady }) {
         return points ? points.ids : [];
     }
 
-    function addPathSegment(fromId, toId, color) {
-        if (pathTrace) pathTrace.addSegment(fromId, toId, color);
+    function addPathSegment(fromId, toId, color, useTimer = false) {
+        if (pathTrace) pathTrace.addSegment(fromId, toId, color, useTimer);
     }
 
     function truncatePath(keepCount) {
@@ -187,6 +217,12 @@ function app({ container, id, mapType, state, appIsReady }) {
 
     function clearPath() {
         if (pathTrace) pathTrace.clear();
+    }
+
+    function setGhostPath(fromId, toId) {
+        if (!pathTrace) return;
+        if (!fromId || !toId) pathTrace.clearGhost();
+        else pathTrace.setGhost(fromId, toId);
     }
 
     function resetFocus() {
@@ -286,16 +322,25 @@ function app({ container, id, mapType, state, appIsReady }) {
             return bestIndex;
         }
 
+        // Track the cursor coords so onHover (fired only on hover-index
+        // change) carries the spawn position of the newly-entered sprite.
+        // VIEW_2 uses this to drop a preview at the spot the cursor first
+        // hits the sprite — the preview does NOT track subsequent cursor
+        // motion, so per-pointermove emissions aren't needed.
+        let lastX = 0, lastY = 0;
+
         function setHover(i) {
             if (i === lastHoverIndex) return;
             lastHoverIndex = i;
             const id = i >= 0 ? points.ids[i] : null;
             points.highlight(id);
             canvas.style.cursor = i >= 0 ? 'pointer' : 'default';
-            if (typeof onHover === 'function') onHover(id);
+            if (typeof onHover === 'function') onHover(id, { x: lastX, y: lastY });
         }
 
         canvas.addEventListener('pointermove', (event) => {
+            lastX = event.clientX;
+            lastY = event.clientY;
             setHover(hitInstance(event));
         });
 
@@ -316,7 +361,7 @@ function app({ container, id, mapType, state, appIsReady }) {
 
     setup();
 
-    return { animate, focusOn, getIds, addPathSegment, truncatePath, clearPath, resetFocus, resize, setCameraZ, setDriftTarget, morphTo, enterDisperse, exitDisperse, enablePicking, highlight, setHighlightPreset, getPanProgress }
+    return { animate, focusOn, setCameraTarget, getIds, addPathSegment, truncatePath, clearPath, setGhostPath, resetFocus, resize, setCameraZ, setDriftTarget, morphTo, enterDisperse, exitDisperse, enablePicking, highlight, setHighlightPreset, getPanProgress }
 }
 
 export default app;

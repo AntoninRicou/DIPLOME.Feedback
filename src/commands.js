@@ -8,9 +8,16 @@ export function createCommands(apps, stateManager, pathPlayer) {
     // highlight halo for perceptual feedback, but the camera target must
     // not move. Extends CLAUDE.md's existing post-confirmation rule to any
     // overview state (pre- or post-confirmation).
-    const pan = stateManager.state !== 'overview';
-    apps.forEach(a => {
-      if (a.isReady) a.object.focusOn(pointId, { pan });
+    const globalOverview = stateManager.state === 'overview';
+    // Per-canvas pan suppression: VIEW_4 hover-unzoom pins individual
+    // canvases at overview cameraZ via setCanvasOverride. Those canvases
+    // must keep their (0,0) camera position when history nav fires focus,
+    // even though the global state is `split`. The halo still updates so
+    // the user sees the active-image hint on the full map.
+    apps.forEach((a, i) => {
+      if (!a.isReady) return;
+      const pan = !globalOverview && stateManager.shouldPanCanvas(i);
+      a.object.focusOn(pointId, { pan });
     });
   }
 
@@ -74,8 +81,14 @@ export function createCommands(apps, stateManager, pathPlayer) {
   function addPathSegment(fromId, toId) {
     if (!fromId || !toId) return;
     const color = pickRandomColor();
-    apps.forEach(a => {
-      if (a.isReady) a.object.addPathSegment(fromId, toId, color);
+    apps.forEach((a, i) => {
+      if (!a.isReady) return;
+      // Per-canvas timer fallback: when this canvas has its pan
+      // suppressed (VIEW_4 hover-unzoom), pathTrace can't ride
+      // panProgress to draw the segment — animate on its own clock
+      // instead so the line still visibly reaches the new image.
+      const useTimer = !stateManager.shouldPanCanvas(i);
+      a.object.addPathSegment(fromId, toId, color, useTimer);
     });
   }
 
@@ -160,6 +173,20 @@ export function createCommands(apps, stateManager, pathPlayer) {
     });
   }
 
+  // Ghost path — transient dashed line on every canvas from `fromId` to
+  // `toId`, showing the proximity link between the active central image
+  // and whichever related image is currently hovered. Mirrors the shape
+  // of `setHighlight`: pure perceptual feedback, no state change, no
+  // persistence. Empty / null payload clears (fades out). Apps whose
+  // dataset doesn't contain both ids hide the ghost on that canvas.
+  function setGhostPath(payload) {
+    const fromId = payload && typeof payload.fromId === 'string' ? payload.fromId : null;
+    const toId = payload && typeof payload.toId === 'string' ? payload.toId : null;
+    apps.forEach(a => {
+      if (a.isReady && a.object.setGhostPath) a.object.setGhostPath(fromId, toId);
+    });
+  }
+
   // Per-canvas zoom-in: while project is in `overview`, zoom one canvas
   // toward `split`'s cameraZ AND pan its camera onto the given image.
   // Used by VIEW-3's per-quadrant cross flow; each call shifts one of the
@@ -175,9 +202,11 @@ export function createCommands(apps, stateManager, pathPlayer) {
       return;
     }
     const app = apps[i];
-    // Matches goTo's default transition duration so the per-canvas zoom
-    // feels like the overview transitions elsewhere in the system.
-    const ZOOM_DURATION_SEC = 1.5;
+    // VIEW_3's per-cross zoom defaults to 1.5s (matches goTo's transition
+    // pacing). VIEW_4 hover-zoom passes its own slower duration via
+    // payload.durationSec so the hover-out / hover-in motions feel
+    // deliberate without speeding up the VIEW_3 sequence.
+    const ZOOM_DURATION_SEC = typeof payload?.durationSec === 'number' ? payload.durationSec : 1.5;
     stateManager.setCanvasOverride(i, SPLIT_CAMERA_Z, ZOOM_DURATION_SEC);
     // Also switch this canvas's highlight preset to split's `default`. The
     // `big` preset (set by goTo('overview') for the whole field) reads
@@ -196,5 +225,35 @@ export function createCommands(apps, stateManager, pathPlayer) {
     if (app?.isReady) app.object.focusOn(id, { pan: true, panDuration: ZOOM_DURATION_SEC });
   }
 
-  return { focusOnId, pickRandomCommonId, setState, startPath, simulatePath, clearPaths, addPathSegment, truncatePath, setMask, setCanvasBg, setHighlight, setCanvasZoom, setCornerLabels, setCanvasText, setCenterCaption };
+  // Symmetric inverse of `setCanvasZoom` — lift one canvas back to the
+  // overview cameraZ + pan its camera to map origin. Drives VIEW_4's
+  // hover-unzoom behavior: hovering a quadrant unzooms the other three
+  // to show the full map; moving the mouse to the central image (or to
+  // another quadrant) re-zooms the canvases that are no longer the
+  // hovered one. The override carries `suppressFocusPan: true` so
+  // history-nav focus emissions update the perceptual halo (the user
+  // still sees where the active image is on the full map) without
+  // panning the camera away from origin.
+  const OVERVIEW_CAMERA_Z = 3.5;
+  function setCanvasOverview(payload) {
+    const i = payload?.canvasIndex;
+    if (typeof i !== 'number' || i < 0 || i > 3) {
+      console.warn('[set-canvas-overview] dropped: bad payload', payload);
+      return;
+    }
+    const app = apps[i];
+    // Default 0.6s for any internal callers; VIEW_4 hover-unzoom passes
+    // its own slower duration via payload.durationSec to match the
+    // hover re-zoom pacing.
+    const UNZOOM_DURATION_SEC = typeof payload?.durationSec === 'number' ? payload.durationSec : 0.6;
+    stateManager.setCanvasOverride(i, OVERVIEW_CAMERA_Z, UNZOOM_DURATION_SEC, { suppressFocusPan: true });
+    if (app?.isReady && app.object.setHighlightPreset) {
+      app.object.setHighlightPreset('big');
+    }
+    if (app?.isReady && app.object.setCameraTarget) {
+      app.object.setCameraTarget({ x: 0, y: 0, panDuration: UNZOOM_DURATION_SEC });
+    }
+  }
+
+  return { focusOnId, pickRandomCommonId, setState, startPath, simulatePath, clearPaths, addPathSegment, truncatePath, setMask, setCanvasBg, setHighlight, setGhostPath, setCanvasZoom, setCanvasOverview, setCornerLabels, setCanvasText, setCenterCaption };
 }
