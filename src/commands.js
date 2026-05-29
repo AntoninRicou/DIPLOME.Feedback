@@ -115,6 +115,42 @@ export function createCommands(apps, stateManager, pathPlayer) {
     document.body.dataset.cornerLabels = visible ? 'visible' : '';
   }
 
+  // Fullscreen-centred caption — drops a single string into
+  // `#center-caption` and toggles visibility. Empty string (or missing
+  // field) clears + hides. Project is content-blind; interface_nuxt
+  // owns the copy and the timing (currently the 1s reveal after the
+  // fourth VIEW_3 cross click, mirroring interface's `.modes-caption`).
+  function setCenterCaption(payload) {
+    const el = document.getElementById('center-caption');
+    if (!el) return;
+    const text = typeof payload?.text === 'string' ? payload.text : '';
+    el.textContent = text;
+    el.classList.toggle('visible', !!text);
+  }
+
+  // Per-canvas text overlay — drops title + body into the `.canvas-text`
+  // DOM block inside container-N and toggles visibility. Empty strings
+  // (or missing fields) clear the text and hide the block. Project never
+  // knows what the text means; interface_nuxt owns content and decides
+  // when each canvas's text appears (VIEW_3 cross click, VIEW_4
+  // interpretation toggle).
+  function setCanvasText(payload) {
+    const i = payload?.canvasIndex;
+    if (typeof i !== 'number' || i < 0 || i > 3) {
+      console.warn('[set-canvas-text] dropped: bad canvasIndex', payload);
+      return;
+    }
+    const el = document.querySelector(`.canvas-text[data-canvas="${i}"]`);
+    if (!el) return;
+    const title = typeof payload.title === 'string' ? payload.title : '';
+    const body = typeof payload.body === 'string' ? payload.body : '';
+    const titleEl = el.querySelector('.canvas-text-title');
+    const bodyEl = el.querySelector('.canvas-text-body');
+    if (titleEl) titleEl.textContent = title;
+    if (bodyEl) bodyEl.textContent = body;
+    el.classList.toggle('visible', !!(title || body));
+  }
+
   // Transient perception channel: highlight a single id (or clear with null).
   // No camera move, no state change, no persistence — purely a visual hint.
   function setHighlight(payload) {
@@ -160,5 +196,5 @@ export function createCommands(apps, stateManager, pathPlayer) {
     if (app?.isReady) app.object.focusOn(id, { pan: true, panDuration: ZOOM_DURATION_SEC });
   }
 
-  return { focusOnId, pickRandomCommonId, setState, startPath, simulatePath, clearPaths, addPathSegment, truncatePath, setMask, setCanvasBg, setHighlight, setCanvasZoom, setCornerLabels };
+  return { focusOnId, pickRandomCommonId, setState, startPath, simulatePath, clearPaths, addPathSegment, truncatePath, setMask, setCanvasBg, setHighlight, setCanvasZoom, setCornerLabels, setCanvasText, setCenterCaption };
 }
