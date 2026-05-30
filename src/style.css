@@ -1,9 +1,68 @@
+@font-face {
+  font-family: 'ABC Otto';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/ABC%20Otto/ABCOtto-Regular-Trial.woff2') format('woff2'),
+       url('/fonts/ABC%20Otto/ABCOtto-Regular-Trial.woff') format('woff');
+}
+@font-face {
+  font-family: 'ABC Otto';
+  font-style: italic;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/ABC%20Otto/ABCOtto-MediumItalic-Trial.woff2') format('woff2'),
+       url('/fonts/ABC%20Otto/ABCOtto-MediumItalic-Trial.woff') format('woff');
+}
+@font-face {
+  font-family: 'Neue Kabel';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/Neue%20Kabel/NeueKabel-Medium.otf') format('opentype');
+}
+@font-face {
+  font-family: 'Neue Kabel';
+  font-style: italic;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/Neue%20Kabel/NeueKabel-MediumItalic.otf') format('opentype');
+}
+
+:root {
+  /* Single source of truth for the "label tier" font-size — corner labels,
+     rotating intro/explanation text (interface_nuxt's VIEW_1 / VIEW_2 panels),
+     and the per-quadrant title texts (.canvas-text-title here,
+     .proximity-panel-title in interface_nuxt) must all share this size.
+     Style (weight, italic, letter-spacing) is independent — only size is
+     locked. Edit here AND in interface_nuxt/app/app.vue's :root in lockstep. */
+  --label-size: 1.15rem;
+
+  /* Project-wide blue-gray text halo. Two-tier composition: 3 tight
+     overlapping layers at full alpha build a solid muted blue-gray core
+     around each glyph; 2 wider feathered layers add the soft luminous
+     rim. Applied via `body { text-shadow: var(--halo) }` below and
+     inherited by every text node — selectors that need a different
+     effect (corner labels' warm pulse, etc.) just declare their own
+     text-shadow which overrides the inherited value. Edit here AND in
+     interface_nuxt/app/app.vue's :root in lockstep. */
+  --halo:
+    0 0 2px  rgba(150, 170, 200, 1),
+    0 0 5px  rgba(150, 170, 200, 1),
+    0 0 9px  rgba(150, 170, 200, 1),
+    0 0 18px rgba(180, 210, 250, 0.55);
+}
+
 *,
 body,
 html {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+}
+
+html {
+  font-family: 'ABC Otto', serif;
 }
 
 body {
@@ -13,6 +72,14 @@ body {
   position: relative;
   background: var(--bg);
   color: var(--text);
+  /* Project-wide halo, inherited by all text nodes. Selectors that need
+     a custom shadow (`.corner-label` with its warm cream pulse, etc.)
+     just declare their own text-shadow which overrides the inherited
+     value. See :root --halo above. */
+  /* TEMP DISABLED — uncomment to re-enable the project-wide blue-gray
+     halo. Commented out so transition timing can be tested without the
+     paint cost of N text elements each running a 4-layer shadow. */
+  /* text-shadow: var(--halo); */
 }
 
 .container {
@@ -137,13 +204,13 @@ body[data-state="overview"]::before {
      canvas-3 = bl = Shift,   canvas-4 = br = Replay.  */
 .corner-label {
   position: absolute;
-  font-family: monospace;
-  font-size: 0.62rem;
-  letter-spacing: 0.18em;
+  font-weight: 500;
+  font-style: italic;
+  font-size: var(--label-size);
+  letter-spacing: 0.015em;
   color: #595b54;
   padding: 0.75rem 0.95rem;
   pointer-events: none;
-  text-transform: uppercase;
   z-index: 6;
   opacity: 0;
   transition: opacity 600ms ease-out;
@@ -169,6 +236,42 @@ body[data-state="overview"]::before {
    visible labels onto the boot-reset single state. */
 body[data-corner-labels="visible"]:not([data-state="single"]) .corner-label {
   opacity: 1;
+  /* One-shot pulse that swells the warm cream shadow then settles back
+     to the static glow. Plays once when the visibility rule starts
+     matching (i.e. when interface_nuxt emits `set-corner-labels(true)`
+     at the VIEW_3 top-cross click) so the four MIRROR / TRACE / SHIFT /
+     REPLAY tags announce themselves as VIEW_4 takes over. 3.5 s ease-out
+     so the swell lingers near peak — long enough that the eye is drawn
+     to the four corners before the glow recedes. Mirrored exactly on
+     interface_nuxt's `.corner-label` in RelationComponent (View_4) so
+     both screens pulse in lockstep. */
+  animation: corner-label-glow 3.5s ease-out 1 both;
+}
+
+@keyframes corner-label-glow {
+  0%   {
+    text-shadow:
+      0 0 8px rgba(255, 252, 230, 1),
+      0 0 20px rgba(255, 248, 220, 0.9),
+      0 0 42px rgba(255, 244, 210, 0.6),
+      0 0 75px rgba(255, 240, 200, 0.3);
+  }
+  28%  {
+    text-shadow:
+      0 0 6px rgba(255, 255, 245, 1),
+      0 0 20px rgba(255, 252, 225, 1),
+      0 0 55px rgba(252, 240, 195, 1),
+      0 0 115px rgba(248, 225, 165, 0.95),
+      0 0 210px rgba(240, 205, 130, 0.8),
+      0 0 340px rgba(230, 188, 100, 0.55);
+  }
+  100% {
+    text-shadow:
+      0 0 8px rgba(255, 252, 230, 1),
+      0 0 20px rgba(255, 248, 220, 0.9),
+      0 0 42px rgba(255, 244, 210, 0.6),
+      0 0 75px rgba(255, 240, 200, 0.3);
+  }
 }
 
 /* Per-canvas text overlay — mirrors interface_nuxt's `.proximity-panel`
@@ -189,7 +292,6 @@ body[data-corner-labels="visible"]:not([data-state="single"]) .corner-label {
   color: #595b54;
   pointer-events: none;
   box-sizing: border-box;
-  font-family: serif;
   z-index: 7;
   opacity: 0;
   transition: opacity 600ms ease-out;
@@ -205,15 +307,22 @@ body:not([data-state="single"]) .canvas-text.visible {
 }
 .canvas-text-title {
   margin: 0 0 0.4rem;
-  font-size: 0.95rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  line-height: 1.3;
+  /* Mirrors `.corner-label` typography (weight 500, italic, same size +
+     tracking) so the canvas-text title and the four corner labels read
+     as the same typographic tier. Pairs with interface_nuxt's
+     `.proximity-panel-title`. */
+  font-size: var(--label-size);
+  font-weight: 500;
+  font-style: italic;
+  letter-spacing: 0.015em;
+  line-height: 1.2;
 }
 .canvas-text-body {
   margin: 0;
+  font-family: 'Neue Kabel', sans-serif;
   font-size: 0.9rem;
-  line-height: 1.5;
+  font-weight: 500;
+  line-height: 1.3;
 }
 
 /* Centre caption — fullscreen overlay text dropped exactly at viewport
@@ -231,9 +340,8 @@ body:not([data-state="single"]) .canvas-text.visible {
   padding: 0 1rem;
   white-space: nowrap;
   text-align: center;
-  font-family: serif;
   font-size: 0.95rem;
-  line-height: 1.6;
+  line-height: 1.4;
   color: #595b54;
   pointer-events: none;
   z-index: 1001;
