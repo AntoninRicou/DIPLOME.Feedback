@@ -173,6 +173,18 @@ export function createCommands(apps, stateManager, pathPlayer) {
     });
   }
 
+  // Persistent multi-highlight: light a set of ids on every canvas (or
+  // clear with an empty/missing list). Mirrors `setHighlight`'s shape but
+  // persistent and multi-id — used by the overview "circle of images" to
+  // light the whole contributed path at once. Pure perception: no camera
+  // move, no state change, no path mutation.
+  function setMarks(payload) {
+    const ids = Array.isArray(payload?.ids) ? payload.ids : [];
+    apps.forEach(a => {
+      if (a.isReady && a.object.setMarks) a.object.setMarks(ids);
+    });
+  }
+
   // Ghost path — transient dashed line on every canvas from `fromId` to
   // `toId`, showing the proximity link between the active central image
   // and whichever related image is currently hovered. Mirrors the shape
@@ -255,5 +267,5 @@ export function createCommands(apps, stateManager, pathPlayer) {
     }
   }
 
-  return { focusOnId, pickRandomCommonId, setState, startPath, simulatePath, clearPaths, addPathSegment, truncatePath, setMask, setCanvasBg, setHighlight, setGhostPath, setCanvasZoom, setCanvasOverview, setCornerLabels, setCanvasText, setCenterCaption };
+  return { focusOnId, pickRandomCommonId, setState, startPath, simulatePath, clearPaths, addPathSegment, truncatePath, setMask, setCanvasBg, setHighlight, setMarks, setGhostPath, setCanvasZoom, setCanvasOverview, setCornerLabels, setCanvasText, setCenterCaption };
 }

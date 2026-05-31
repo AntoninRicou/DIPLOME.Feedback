@@ -186,17 +186,24 @@ function createPointsManager({ scene, data, atlas, atlasTexture, spread = 5, thu
     let lastFocusIndex = -1;
     let lastHoverIndex = -1;
     const litSet = new Set();
+    // Persistent multi-highlight set (`set-marks`). Every marked index is
+    // lit (scale-up via the shared highlightT machinery) for as long as it
+    // stays marked — independent of the single focus/hover tracks. Used by
+    // the overview "circle of images" to light the whole contributed path
+    // at once instead of just the last selected image.
+    const markSet = new Set();
 
     function idToIdx(id) {
         return id == null ? -1 : (idToIndex.has(id) ? idToIndex.get(id) : -1);
     }
 
-    // Recompute per-instance targets from the desired focus/hover pair: ease
-    // toward 1 for indices that are (still) lit by either track, toward 0 for
-    // ones dropping out. Shared by setFocus/setHover so the two tracks never
-    // clobber each other on the shared highlightTargetT array.
+    // Recompute per-instance targets from the desired focus/hover pair plus
+    // the persistent mark set: ease toward 1 for indices that are (still) lit
+    // by any track, toward 0 for ones dropping out. Shared by
+    // setFocus/setHover/setMarks so the tracks never clobber each other on
+    // the shared highlightTargetT array.
     function applyLit(nextFocus, nextHover) {
-        const next = new Set();
+        const next = new Set(markSet);
         if (nextFocus >= 0) next.add(nextFocus);
         if (nextHover >= 0) next.add(nextHover);
         const changed = [];
@@ -234,6 +241,24 @@ function createPointsManager({ scene, data, atlas, atlasTexture, spread = 5, thu
         if (idx === hoverIndex) return;
         applyLit(focusIndex, idx);
     }
+    // Persistently light a set of ids (the contributed path in overview).
+    // Marks supersede the single focus track: focus is cleared so every
+    // marked image reads equally — no extra filled focus halo on the last
+    // one. An in-flight hover is preserved so it still overlays. Pass an
+    // empty array to clear all marks.
+    function setMarks(idList) {
+        markSet.clear();
+        if (Array.isArray(idList)) {
+            for (const id of idList) {
+                const idx = idToIdx(id);
+                if (idx >= 0) markSet.add(idx);
+            }
+        }
+        applyLit(-1, hoverIndex);
+        // Drop the lingering focus anchor so the focus glow doesn't keep
+        // painting the previously-focused image brighter than its peers.
+        lastFocusIndex = -1;
+    }
 
     function updateGlow(glowMesh, anchorIndex) {
         if (anchorIndex < 0) { glowMesh.visible = false; return; }
@@ -251,7 +276,15 @@ function createPointsManager({ scene, data, atlas, atlasTexture, spread = 5, thu
     }
     function updateActiveGlow() {
         const fa = focusIndex >= 0 ? focusIndex : lastFocusIndex;
-        const ha = hoverIndex >= 0 ? hoverIndex : lastHoverIndex;
+        let ha = hoverIndex;
+        if (ha < 0) {
+            // Hover released. Keep the halo on the last-hovered sprite only
+            // while it's actually fading out (scale easing toward 0). A
+            // hovered sprite that is also MARKED never fades — its scale
+            // stays pinned — so its hover halo would otherwise linger
+            // forever. Suppress it the moment hover is released.
+            ha = (lastHoverIndex >= 0 && !litSet.has(lastHoverIndex)) ? lastHoverIndex : -1;
+        }
         updateGlow(focusGlow, fa);
         // Hide the hover halo when it coincides with the focus halo so the
         // overlap doesn't read as a single double-bright blob.
@@ -510,7 +543,7 @@ function createPointsManager({ scene, data, atlas, atlasTexture, spread = 5, thu
         updateActiveGlow();
     }
 
-    return { mesh, geometry, material, ids, positions, highlight, setFocus, setHover, setHighlightPreset, getPosition, morphTo, tick, enterDisperse, exitDisperse };
+    return { mesh, geometry, material, ids, positions, highlight, setFocus, setHover, setMarks, setHighlightPreset, getPosition, morphTo, tick, enterDisperse, exitDisperse };
 }
 
 export { createPointsManager };

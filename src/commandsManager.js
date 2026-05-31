@@ -46,6 +46,10 @@ export function createCommandsManager(actions) {
       actions.setHighlight(payload);
     },
 
+    'set-marks'(payload) {
+      actions.setMarks(payload);
+    },
+
     'set-ghost-path'(payload) {
       actions.setGhostPath(payload);
     },

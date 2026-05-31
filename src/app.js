@@ -275,6 +275,13 @@ function app({ container, id, mapType, state, appIsReady }) {
         if (points) points.highlight(pointId);
     }
 
+    // Persistently light a set of ids on this canvas (the contributed path
+    // in overview). Delegates to the points manager's mark track. Empty
+    // array clears. Purely perceptual — no camera move, no path mutation.
+    function setMarks(ids) {
+        if (points && points.setMarks) points.setMarks(ids);
+    }
+
     // Preset can be set by stateManager.goTo before this app's points have
     // finished loading. Cache the latest name; setup() will apply it once
     // points exists, so the preset survives the boot race.
@@ -361,7 +368,7 @@ function app({ container, id, mapType, state, appIsReady }) {
 
     setup();
 
-    return { animate, focusOn, setCameraTarget, getIds, addPathSegment, truncatePath, clearPath, setGhostPath, resetFocus, resize, setCameraZ, setDriftTarget, morphTo, enterDisperse, exitDisperse, enablePicking, highlight, setHighlightPreset, getPanProgress }
+    return { animate, focusOn, setCameraTarget, getIds, addPathSegment, truncatePath, clearPath, setGhostPath, resetFocus, resize, setCameraZ, setDriftTarget, morphTo, enterDisperse, exitDisperse, enablePicking, highlight, setMarks, setHighlightPreset, getPanProgress }
 }
 
 export default app;
