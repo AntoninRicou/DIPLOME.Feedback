@@ -141,6 +141,21 @@ export function createCommands(apps, stateManager, pathPlayer) {
     el.classList.toggle('visible', !!text);
   }
 
+  // Interpretation veil — beige blurred overlay over the four canvases that
+  // mirrors interface_nuxt's `.interpret-veil` (shown on the VIEW_4 `+`
+  // toggle), so the field recedes behind the centred credit on both screens.
+  // Pure DOM/CSS overlay; toggles a class on `#render-veil`. No render-loop
+  // or state-machine participation.
+  function setCanvasVeil(payload) {
+    const active = !!payload?.active;
+    const el = document.getElementById('render-veil');
+    if (el) el.classList.toggle('visible', active);
+    // Flag the body so the structural cross can blur itself (it sits ABOVE
+    // the veil, so the veil's backdrop-filter can't blur it — mirrors the
+    // interface, where the cross gets its own blur instead of vanishing).
+    document.body.dataset.veil = active ? 'on' : '';
+  }
+
   // Per-canvas text overlay — drops title + body into the `.canvas-text`
   // DOM block inside container-N and toggles visibility. Empty strings
   // (or missing fields) clear the text and hide the block. Project never
@@ -267,5 +282,5 @@ export function createCommands(apps, stateManager, pathPlayer) {
     }
   }
 
-  return { focusOnId, pickRandomCommonId, setState, startPath, simulatePath, clearPaths, addPathSegment, truncatePath, setMask, setCanvasBg, setHighlight, setMarks, setGhostPath, setCanvasZoom, setCanvasOverview, setCornerLabels, setCanvasText, setCenterCaption };
+  return { focusOnId, pickRandomCommonId, setState, startPath, simulatePath, clearPaths, addPathSegment, truncatePath, setMask, setCanvasBg, setHighlight, setMarks, setGhostPath, setCanvasZoom, setCanvasOverview, setCornerLabels, setCanvasText, setCenterCaption, setCanvasVeil };
 }

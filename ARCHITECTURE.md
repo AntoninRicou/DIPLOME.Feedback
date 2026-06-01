@@ -52,7 +52,7 @@ Vite config. Adds two dev-server middlewares that expose folders outside the pro
 **[src/main.js](src/main.js)**
 The boot script. Responsibilities:
 1. Creates a `stateManager` (layout/state machine).
-2. Calls `createApp()` four times, each with a different `mapType` (`projection_2d`, `umap_book`, `umap_subjects_embeddings`, `umap_random`).
+2. Calls `createApp()` four times, each with a different `mapType` (`trace`, `mirror`, `shift`, `replay`).
 3. Connects to the socket server, builds `commands` + `commandsManager`, and registers all message handlers.
 4. Exposes a debugging API on `window.api` (so you can type `api.run('focus-random')` in the browser console).
 5. Runs the global `requestAnimationFrame` loop, which advances the state manager and ticks every ready app each frame.

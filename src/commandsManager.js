@@ -73,6 +73,10 @@ export function createCommandsManager(actions) {
     'set-center-caption'(payload) {
       actions.setCenterCaption(payload);
     },
+
+    'set-canvas-veil'(payload) {
+      actions.setCanvasVeil(payload);
+    },
   };
 
   return {

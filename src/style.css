@@ -170,7 +170,10 @@ body::before {
   position: fixed;
   inset: 5%;
   pointer-events: none;
-  z-index: 5;
+  /* Above the interpretation veil (#render-veil, z: 5) so the thin cross
+     line isn't washed out by the veil's tint/blur; it gets its own soft blur
+     in veil mode instead (see `body[data-veil="on"]::before`). */
+  z-index: 6;
   background:
     linear-gradient(to bottom,
       transparent calc(50% - 0.5px),
@@ -183,11 +186,39 @@ body::before {
       rgba(166, 154, 128, 0.85) calc(50% + 0.5px),
       transparent calc(50% + 0.5px));
   opacity: 0;
-  transition: opacity 400ms ease;
+  transition: opacity 400ms ease, filter 240ms ease-out;
 }
 
 body[data-state="split"]::before,
 body[data-state="overview"]::before {
+  opacity: 1;
+}
+/* In interpretation/veil mode the cross stays visible but goes soft —
+   blurred to match the veiled field behind it, never removed. Mirrors the
+   interface's `.view-3.interpreting::before`. */
+body[data-veil="on"]::before {
+  filter: blur(3px);
+}
+
+/* Interpretation veil — beige blurred overlay mirroring interface_nuxt's
+   `.interpret-veil` (VIEW_4 `+` toggle). z: 5 sits above the canvas
+   point-cloud and the structural cross (also z: 5, painted before it, so it
+   blurs too), but below the corner labels (z: 6), canvas-text (z: 7) and
+   centre-caption (z: 1001), which stay crisp above the blurred field.
+   Visibility driven by the `set-canvas-veil` wire directive (commands.js);
+   pure DOM/CSS overlay, no render-loop or state-machine participation. */
+#render-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  background: rgba(232, 224, 206, 0.32);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 240ms ease-out;
+}
+#render-veil.visible {
   opacity: 1;
 }
 
@@ -200,7 +231,7 @@ body[data-state="overview"]::before {
    gated by `body[data-state]` (same condition as the structural cross
    on body::before). Each label's `data-position` mirrors its canvas's
    quadrant in `STATES.split.rects`:
-     canvas-1 = tl = Mirror,  canvas-2 = tr = Trace,
+     canvas-1 = tl = Trace,   canvas-2 = tr = Mirror,
      canvas-3 = bl = Shift,   canvas-4 = br = Replay.  */
 .corner-label {
   position: absolute;
@@ -338,7 +369,11 @@ body:not([data-state="single"]) .canvas-text.visible {
   transform: translate(-50%, -50%);
   margin: 0;
   padding: 0 1rem;
-  white-space: nowrap;
+  /* `pre` so newline-separated captions (the VIEW_4 image-credit) break into
+     exactly three lines with NO wrapping — the block auto-grows to the widest
+     line, mirroring the interface's `nowrap` + `<br>`. Single-line captions
+     (VIEW_3 modes-caption, no newlines) stay one line, unaffected. */
+  white-space: pre;
   text-align: center;
   font-size: 0.95rem;
   line-height: 1.4;

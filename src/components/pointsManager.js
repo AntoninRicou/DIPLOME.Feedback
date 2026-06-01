@@ -390,7 +390,7 @@ function createPointsManager({ scene, data, atlas, atlasTexture, spread = 5, thu
         setInstance(i, scaleMul, z);
     }
 
-    function enterDisperse({ rMax = 2.0, cycleSpeed = 15, wanderDistance = 0.8 } = {}) {
+    function enterDisperse({ rMax = 2.0, cycleSpeed = 15, wanderDistance = 0.8, ovalX = 1.4, ovalY = 1.0 } = {}) {
         morphing = false;
         disperse.active = true;
         disperse.phase = 'burst';
@@ -406,10 +406,14 @@ function createPointsManager({ scene, data, atlas, atlasTexture, spread = 5, thu
             const id = ids[i];
             disperse.restore.set(`restore:${id}`, { x: positions[i].x, y: positions[i].y });
 
+            // Spawn positions sampled on an ellipse (ovalX, ovalY = 1 ⇒ circle).
+            // Defaults to ovalX = 1.4 / ovalY = 1.0 ⇒ a moderately wider-than-
+            // tall cloud, matching typical landscape viewports. Caller can
+            // override by passing { ovalX, ovalY } at enterDisperse time.
             const angle = Math.random() * Math.PI * 2;
             const r = rMax * Math.sqrt(Math.random());
-            const spawnX = Math.cos(angle) * r;
-            const spawnY = Math.sin(angle) * r;
+            const spawnX = Math.cos(angle) * r * ovalX;
+            const spawnY = Math.sin(angle) * r * ovalY;
 
             const fx1 = 0.5 + Math.random() * 1.5;
             const fx2 = 0.5 + Math.random() * 1.5;
@@ -465,41 +469,55 @@ function createPointsManager({ scene, data, atlas, atlasTexture, spread = 5, thu
         // time origin (start of enterDisperse); each sprite's `delay` and
         // `duration` define its individual burst window.
         disperse.burstElapsed += dt;
-        const FADE_IN_SEC = 0.6;
+        // Window over which drift amplitude ramps from 0 to full. Chosen
+        // longer than the average burst duration so drift is already
+        // substantially active by the time a sprite lands at its spawn
+        // position — there is no perceptual gap between "arriving" and
+        // "wandering". Effectively this dissolves the burst↔drift phase
+        // boundary into one continuous motion.
+        const DRIFT_RAMP_SEC = 0.7;
 
         for (let i = 0; i < count; i++) {
             const p = disperse.per[i];
             const sinceStart = disperse.burstElapsed - p.delay;
             const burstProgress = Math.max(0, Math.min(1, sinceStart / p.duration));
 
+            // ── Drift offset — computed every frame from sprite spawn ──
+            // Drift time origin is the sprite's burst start (not its arrival
+            // at spawn). The amplitude smoothstep ramps from 0 over
+            // DRIFT_RAMP_SEC, so during the early part of burst the sprite
+            // moves nearly straight outward; as the ramp climbs the sprite
+            // begins to curve, and by the time burst ends, drift is most of
+            // its way to full amplitude. Sprites therefore never "stop and
+            // then start moving" — they smoothly evolve from radial-outward
+            // motion into wander, with continuous velocity and acceleration.
+            const drift_t = sinceStart / disperse.cycleSpeed;
+            const driftRampRaw = Math.max(0, Math.min(1, sinceStart / DRIFT_RAMP_SEC));
+            const driftRamp = driftRampRaw * driftRampRaw * (3 - 2 * driftRampRaw);
+            const wd = disperse.wanderDistance * driftRamp;
+            const dx = (Math.sin(p.fx1 * drift_t + p.px1) + Math.sin(p.fx2 * drift_t + p.px2) - p.baseX) * wd;
+            const dy = (Math.sin(p.fy1 * drift_t + p.py1) + Math.sin(p.fy2 * drift_t + p.py2) - p.baseY) * wd;
+
             if (burstProgress < 1) {
-                // Burst — unchanged from before. easeOutCubic to spawn position.
+                // Burst phase — radial outward motion + the live drift offset.
+                // easeOutCubic still drives the radial component, but the
+                // sprite is no longer travelling in a pure straight line
+                // toward spawn; the drift offset bends the path continuously
+                // and is already in motion when burst arrives.
                 const e = easeOutCubic(burstProgress);
-                positions[i].x = p.spawnX * e;
-                positions[i].y = p.spawnY * e;
+                positions[i].x = p.spawnX * e + dx;
+                positions[i].y = p.spawnY * e + dy;
                 writeInstance(i);
                 continue;
             }
 
-            // Drift — this sprite has reached its spawn position. Anchor is
-            // set lazily on the first drift frame so the global anchor sweep
-            // (previously done when `phase` flipped) is no longer needed.
+            // Settled — drift around anchor (which equals the spawn point).
+            // Anchor is set lazily on the first frame post-arrival.
             let a = disperse.anchor.get(ids[i]);
             if (!a) {
                 a = { x: p.spawnX, y: p.spawnY };
                 disperse.anchor.set(ids[i], a);
             }
-
-            // Per-sprite drift time + per-sprite fade-in. Amplitude ramps 0→1
-            // over FADE_IN_SEC so drift velocity grows continuously from the
-            // burst's zero-end velocity. Once past fade-in, drift is identical
-            // to the steady-state behavior (wd = disperse.wanderDistance).
-            const sinceBurstEnd = sinceStart - p.duration;
-            const t = sinceBurstEnd / disperse.cycleSpeed;
-            const fadeIn = Math.min(1, sinceBurstEnd / FADE_IN_SEC);
-            const wd = disperse.wanderDistance * fadeIn;
-            const dx = (Math.sin(p.fx1 * t + p.px1) + Math.sin(p.fx2 * t + p.px2) - p.baseX) * wd;
-            const dy = (Math.sin(p.fy1 * t + p.py1) + Math.sin(p.fy2 * t + p.py2) - p.baseY) * wd;
 
             if (i === hoverIndex) {
                 // Hover freeze: keep `positions[i]` exactly where it is so

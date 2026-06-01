@@ -45,10 +45,10 @@ function main() {
   function setup() {
     console.log("Setting up the application...");
     stateManager.init();
-    createApp(1, 'projection_2d');
-    createApp(2, 'umap_book');
-    createApp(3, 'umap_subjects_embeddings');
-    createApp(4, 'umap_random');
+    createApp(1, 'trace');     // canvas-1 = tl = Trace  (component_1)
+    createApp(2, 'mirror');    // canvas-2 = tr = Mirror (component_2)
+    createApp(3, 'shift');     // canvas-3 = bl = Shift  (component_3)
+    createApp(4, 'replay');    // canvas-4 = br = Replay (component_4)
 
     if (!isEmbedded) setupSocketBridge();
     animate();
@@ -67,7 +67,7 @@ function main() {
     };
   }
 
-  function createApp(number, mapType = 'form') {
+  function createApp(number, mapType) {
     const container = document.getElementById(`container-${number}`);
     const id = `canvas-${number}`;
     const newApp = app({ container, id, mapType, state: {}, appIsReady: () => appIsReady(id) });
@@ -99,7 +99,10 @@ function main() {
     if (isEmbedded && !dispersePrimed) {
       const host = apps[0];
       if (host && host.isReady && host.object.enterDisperse) {
-        host.object.enterDisperse();
+        // Slightly larger disperse oval (both axes) so the spawning field
+        // fills more of the VIEW_2 viewport. rMax scales X and Y together;
+        // ovalX/ovalY keep the same wider-than-tall shape.
+        host.object.enterDisperse({ rMax: 2.4, ovalX: 1.5, ovalY: 1.0 });
         // Embed mode bypasses stateManager.goTo (which is what normally sets
         // the highlight preset per state), so apply the 'big' preset here —
         // disperse is a far-camera state where small sprites need amplification.

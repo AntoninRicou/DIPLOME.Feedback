@@ -1,7 +1,7 @@
 const SPREAD = 5;
 const CAMERA_FOV_DEG = 75;
 const OVERVIEW_Z = SPREAD / (2 * Math.tan((CAMERA_FOV_DEG * Math.PI) / 360));
-const ALL_MAP_TYPES = ['projection_2d', 'umap_book', 'umap_subjects_embeddings', 'umap_random'];
+const ALL_MAP_TYPES = ['mirror', 'trace', 'shift', 'replay'];
 const SINGLE_HOLD = 4;
 const SINGLE_MORPH = 1;
 
@@ -139,7 +139,7 @@ export function createStateManager({ containers, getApps, initial = 'single' }) 
     if (name === 'single') {
       singleActive = true;
       singleTimer = SINGLE_HOLD;
-      singleCurrentMap = host?.mapType ?? 'projection_2d';
+      singleCurrentMap = host?.mapType ?? 'mirror';
       apps.forEach(a => {
         if (a.isReady && a.object.resetFocus) a.object.resetFocus();
       });
