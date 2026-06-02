@@ -137,8 +137,20 @@ export function createCommands(apps, stateManager, pathPlayer) {
     const el = document.getElementById('center-caption');
     if (!el) return;
     const text = typeof payload?.text === 'string' ? payload.text : '';
-    el.textContent = text;
-    el.classList.toggle('visible', !!text);
+    if (text) {
+      // `variant: 'rotate'` (VIEW_2/VIEW_3 rotating-intro mirror) styles the
+      // caption like the interface (bigger + blue-grey stroke); anything else
+      // (modes-caption, image-credit) keeps the plain center style.
+      el.textContent = text;
+      el.classList.toggle('rotate', payload?.variant === 'rotate');
+      el.classList.add('visible');
+    } else {
+      // Hide by fading opacity ONLY — keep the text + variant class so the
+      // text fades OUT visibly (matching the interface caption's leave) over
+      // the matching duration, instead of vanishing instantly. The next
+      // non-empty caption overwrites the text and resets the variant class.
+      el.classList.remove('visible');
+    }
   }
 
   // Interpretation veil — beige blurred overlay over the four canvases that

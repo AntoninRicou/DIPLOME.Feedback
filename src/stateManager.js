@@ -145,9 +145,16 @@ export function createStateManager({ containers, getApps, initial = 'single' }) 
       });
     } else {
       singleActive = false;
-      // Restore canvas-1 to its original map; demo cycle may have morphed it away.
+      // Restore canvas-1 to its original map; the single-state demo cycle may
+      // have morphed it away. Snap INSTANTLY (duration 0): this restore is a
+      // cleanup, not a designed visual, and every single → other transition
+      // runs behind the render mask. A timed (SINGLE_MORPH = 1 s) morph here
+      // leaked past the VIEW_1 → VIEW_2 hidden-morph reveal — the points were
+      // still flying to their canonical positions when the mask lifted, which
+      // read as an intermittent "jump" (intermittent because it only fired
+      // when the cycle had drifted canvas-1 off its original map at advance).
       if (host?.isReady && host.object.morphTo && singleCurrentMap && singleCurrentMap !== host.mapType) {
-        host.object.morphTo(host.mapType, SINGLE_MORPH);
+        host.object.morphTo(host.mapType, 0);
         singleCurrentMap = host.mapType;
       }
     }

@@ -127,6 +127,10 @@ function main() {
           },
         });
         dispersePrimed = true;
+        // Signal the embedder that the disperse burst has begun, so the
+        // standalone project's overview reveal (mask fade-out) can fire in
+        // sync with the spawning sprites instead of on a blind timer.
+        window.parent.postMessage({ type: 'view0:dispersed' }, '*');
       }
     }
 

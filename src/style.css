@@ -38,6 +38,21 @@
      locked. Edit here AND in interface_nuxt/app/app.vue's :root in lockstep. */
   --label-size: 1.15rem;
 
+  /* Mirrors interface_nuxt's --rotate-panel-bg: the light blue-grey (90%
+     opacity) used for the organic "stroke" behind the rotating-intro
+     captions. Used by `#center-caption.rotate` so the VIEW_2/VIEW_3 mirrored
+     captions match the interface look. Keep in lockstep with app.vue. */
+  --rotate-panel-bg: rgba(170, 180, 194, 0.9);
+
+  /* Rotating-caption FADE timing, mirrored from interface_nuxt's :root so the
+     project mirror fades in/out simultaneously with the interface caption.
+     The interface drives the emissions from its <Transition> enter/leave
+     hooks; these match the duration/easing (and the empty-beat enter delay).
+     Keep in lockstep with app.vue. */
+  --rotate-fade-ms: 400ms;
+  --rotate-fade-easing: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --rotate-empty-beat: 200ms;
+
   /* Project-wide blue-gray text halo. Two-tier composition: 3 tight
      overlapping layers at full alpha build a solid muted blue-gray core
      around each glyph; 2 wider feathered layers add the soft luminous
@@ -369,11 +384,14 @@ body:not([data-state="single"]) .canvas-text.visible {
   transform: translate(-50%, -50%);
   margin: 0;
   padding: 0 1rem;
-  /* `pre` so newline-separated captions (the VIEW_4 image-credit) break into
-     exactly three lines with NO wrapping — the block auto-grows to the widest
-     line, mirroring the interface's `nowrap` + `<br>`. Single-line captions
-     (VIEW_3 modes-caption, no newlines) stay one line, unaffected. */
-  white-space: pre;
+  /* `pre-wrap` so newline-separated captions (the VIEW_4 image-credit) keep
+     their explicit line breaks, while long single captions — the mirrored
+     VIEW_2 rotating intro sentence — wrap instead of overflowing on one line.
+     `max-width` bounds the wrap (so the long sentence lands on ~2 lines); it's
+     generous enough that the short credit lines never wrap. Single-line
+     captions (VIEW_3 modes-caption) stay one line, unaffected. */
+  white-space: pre-wrap;
+  max-width: min(46em, 88vw);
   text-align: center;
   font-size: 0.95rem;
   line-height: 1.4;
@@ -387,4 +405,36 @@ body:not([data-state="single"]) .canvas-text.visible {
    `.canvas-text` — no component-title overlay shows in `single`. */
 body:not([data-state="single"]) #center-caption.visible {
   opacity: 1;
+}
+/* Rotating-intro mirror (VIEW_2 / VIEW_3) — matches interface_nuxt's rotating
+   caption look: larger (--label-size, vs the base 0.95rem modes-caption size)
+   and backed by the same organic blue-grey "stroke" (layered text-shadow in
+   --rotate-panel-bg) that hugs the glyphs. Keep this stack in lockstep with
+   `.caption-text` in the interface views. Only applies when the caption was
+   emitted with `variant: 'rotate'`; modes-caption / image-credit stay plain. */
+#center-caption.rotate {
+  font-size: calc(var(--label-size) * 2);
+  /* Match the interface caption's fade duration + easing (the base
+     center-caption uses its own 600ms). The empty-beat enter delay is added
+     only while entering (`.rotate.visible` below) — leaving uses 0 delay,
+     mirroring the interface's leave-active (no delay) vs enter-active (delay)
+     split. */
+  transition: opacity var(--rotate-fade-ms) var(--rotate-fade-easing);
+  text-shadow:
+    0 0 4px var(--rotate-panel-bg),
+    0 0 6px var(--rotate-panel-bg),
+    0 0 6px var(--rotate-panel-bg),
+    0 0 9px var(--rotate-panel-bg),
+    0 0 9px var(--rotate-panel-bg),
+    0 0 12px var(--rotate-panel-bg),
+    0 0 12px var(--rotate-panel-bg),
+    0 0 15px var(--rotate-panel-bg),
+    0 0 18px var(--rotate-panel-bg);
+}
+/* Enter-only delay: the post-change state when fading IN is `.rotate.visible`
+   (so this delay applies); when fading OUT, `.visible` is removed so the
+   `.rotate` rule above (0 delay) governs — exactly mirroring the interface's
+   enter-active `--rotate-empty-beat` delay vs leave-active no-delay. */
+#center-caption.rotate.visible {
+  transition-delay: var(--rotate-empty-beat);
 }
