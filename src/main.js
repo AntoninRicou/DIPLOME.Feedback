@@ -16,7 +16,13 @@ function main() {
   // Embed mode bypasses the relay, so `set-canvas-bg` from interface_nuxt
   // never arrives — apply the day gradient inline so the disperse field
   // sits on the same backdrop as the rest of project's views.
-  if (isEmbedded) document.body.dataset.canvasBg = 'gradient';
+  if (isEmbedded) {
+    document.body.dataset.canvasBg = 'gradient';
+    // Hover is gated by the embedder (VIEW_2's phased hover): hide the cursor
+    // and react to NOTHING on hover until the parent posts `view0:enable-hover`
+    // (when the "Explore…" prompt appears).
+    document.body.style.cursor = 'none';
+  }
   const apps = [];
   const containers = [1, 2, 3, 4].map(n => document.getElementById(`container-${n}`));
   const stateManager = createStateManager({
@@ -25,6 +31,19 @@ function main() {
     initial: isEmbedded ? 'disperse' : 'single',
   });
   let dispersePrimed = false;
+  // Embed hover-gate: the parent posts `view0:enable-hover` when VIEW_2's
+  // "Explore…" prompt appears. Until then the cursor stays hidden and picking
+  // is off (no local sprite glow, no hover/click messages).
+  let hoverArmed = false;
+  let pickingEnabled = false;
+  if (isEmbedded) {
+    window.addEventListener('message', (e) => {
+      if (e?.data?.type === 'view0:enable-hover') {
+        hoverArmed = true;
+        document.body.style.cursor = '';
+      }
+    });
+  }
   const pathPlayer = createPathPlayer({
     stepInterval: 2.5,
     dwellTime: 1.0,
@@ -107,12 +126,24 @@ function main() {
         // the highlight preset per state), so apply the 'big' preset here —
         // disperse is a far-camera state where small sprites need amplification.
         if (host.object.setHighlightPreset) host.object.setHighlightPreset('big');
+        dispersePrimed = true;
+        // Signal the embedder that the disperse burst has begun, so the
+        // standalone project's overview reveal (mask fade-out) can fire in
+        // sync with the spawning sprites instead of on a blind timer.
+        window.parent.postMessage({ type: 'view0:dispersed' }, '*');
+      }
+    }
+    // Picking (local sprite glow + hover/click messages) is enabled only once
+    // the embedder arms hover (VIEW_2 phase 2 — the "Explore…" prompt). Before
+    // that the cursor is hidden and nothing reacts to hover at all.
+    if (isEmbedded && dispersePrimed && hoverArmed && !pickingEnabled) {
+      const host = apps[0];
+      if (host && host.object.enablePicking) {
         host.object.enablePicking({
-          // Tighter than the 36px default — VIEW_2's spawn-on-enter
-          // preview was firing on too many adjacent sprites at once
-          // because the picker grabbed any sprite within a fat radius.
-          // 18px keeps it generous for fast disperse motion without
-          // sweeping in unrelated neighbours.
+          // Tighter than the 36px default — VIEW_2's spawn-on-enter preview
+          // was firing on too many adjacent sprites at once because the picker
+          // grabbed any sprite within a fat radius. 9px keeps it generous for
+          // fast disperse motion without sweeping in unrelated neighbours.
           hoverRadiusPx: 9,
           onHover(imageId, pos) {
             const payload = { type: 'view0:image-hover', imageId };
@@ -126,11 +157,7 @@ function main() {
             window.parent.postMessage({ type: 'view0:image-click', imageId }, '*');
           },
         });
-        dispersePrimed = true;
-        // Signal the embedder that the disperse burst has begun, so the
-        // standalone project's overview reveal (mask fade-out) can fire in
-        // sync with the spawning sprites instead of on a blind timer.
-        window.parent.postMessage({ type: 'view0:dispersed' }, '*');
+        pickingEnabled = true;
       }
     }
 

@@ -3,7 +3,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const datasDir = path.resolve(__dirname, 'datas');
-const cacheDir = path.resolve(__dirname, '../process/cache');
+// The atlas lives in the sibling "process" repo. On a fresh clone that folder
+// may carry its GitHub name (DIPLOME.PROCESSDATA) instead — accept either.
+const cacheDir =
+  ['../process/cache', '../DIPLOME.PROCESSDATA/cache']
+    .map((p) => path.resolve(__dirname, p))
+    .find((p) => fs.existsSync(p)) || path.resolve(__dirname, '../process/cache');
 
 function serveStaticDir(urlPrefix, rootDir, name) {
   return {

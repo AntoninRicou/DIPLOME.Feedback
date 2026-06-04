@@ -126,6 +126,25 @@ export function createCommands(apps, stateManager, pathPlayer) {
   function setCornerLabels(payload) {
     const visible = payload?.visible === true;
     document.body.dataset.cornerLabels = visible ? 'visible' : '';
+    // Keep the per-element `.visible` path coherent with the all-or-nothing
+    // path: the boot clear (`visible=false`) must wipe any per-quadrant
+    // reveals set during VIEW_3, and an all-on re-asserts every label.
+    document.querySelectorAll('.corner-label').forEach((el) => {
+      el.classList.toggle('visible', visible);
+    });
+  }
+
+  // Per-quadrant corner-label reveal. Granular sibling of setCornerLabels —
+  // VIEW_3 emits one per quadrant cross click so each label pops in sync
+  // with the interface, rather than all four at once. canvasIndex 0..3 maps
+  // to container-1..4 (tl/tr/bl/br), matching set-canvas-zoom / set-canvas-text.
+  function setCornerLabel(payload) {
+    const i = payload?.canvasIndex;
+    if (typeof i !== 'number' || i < 0 || i > 3) return;
+    const visible = payload?.visible === true;
+    const el = document.querySelector(`#container-${i + 1} .corner-label`);
+    if (!el) return;
+    el.classList.toggle('visible', visible);
   }
 
   // Fullscreen-centred caption — drops a single string into
@@ -294,5 +313,5 @@ export function createCommands(apps, stateManager, pathPlayer) {
     }
   }
 
-  return { focusOnId, pickRandomCommonId, setState, startPath, simulatePath, clearPaths, addPathSegment, truncatePath, setMask, setCanvasBg, setHighlight, setMarks, setGhostPath, setCanvasZoom, setCanvasOverview, setCornerLabels, setCanvasText, setCenterCaption, setCanvasVeil };
+  return { focusOnId, pickRandomCommonId, setState, startPath, simulatePath, clearPaths, addPathSegment, truncatePath, setMask, setCanvasBg, setHighlight, setMarks, setGhostPath, setCanvasZoom, setCanvasOverview, setCornerLabels, setCornerLabel, setCanvasText, setCenterCaption, setCanvasVeil };
 }
