@@ -162,6 +162,9 @@ export function createCommands(apps, stateManager, pathPlayer) {
       // (modes-caption, image-credit) keeps the plain center style.
       el.textContent = text;
       el.classList.toggle('rotate', payload?.variant === 'rotate');
+      // `allowSingle` opts this caption past the `:not([data-state="single"])`
+      // guard so the explore-others prompt can show while project is in single.
+      el.classList.toggle('single-ok', !!payload?.allowSingle);
       el.classList.add('visible');
     } else {
       // Hide by fading opacity ONLY — keep the text + variant class so the
@@ -205,9 +208,20 @@ export function createCommands(apps, stateManager, pathPlayer) {
     const body = typeof payload.body === 'string' ? payload.body : '';
     const titleEl = el.querySelector('.canvas-text-title');
     const bodyEl = el.querySelector('.canvas-text-body');
-    if (titleEl) titleEl.textContent = title;
-    if (bodyEl) bodyEl.textContent = body;
-    el.classList.toggle('visible', !!(title || body));
+    if (title || body) {
+      // Revealing / replacing — write the new content, then fade it in.
+      if (titleEl) titleEl.textContent = title;
+      if (bodyEl) bodyEl.textContent = body;
+      el.classList.add('visible');
+    } else {
+      // Clearing — DON'T wipe textContent here: removing it instantly would
+      // hard-cut the glyphs while the (now empty) box fades, which reads as a
+      // "speed cut". Just drop `.visible` so the existing text fades out via
+      // the opacity transition (same pattern as setCenterCaption). The stale
+      // content stays hidden in the DOM until the next reveal overwrites it
+      // (`.visible` is only ever re-added together with fresh content above).
+      el.classList.remove('visible');
+    }
   }
 
   // Transient perception channel: highlight a single id (or clear with null).

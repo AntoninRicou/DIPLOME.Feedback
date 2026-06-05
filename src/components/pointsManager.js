@@ -206,12 +206,25 @@ function createPointsManager({ scene, data, atlas, atlasTexture, spread = 5, thu
         const next = new Set(markSet);
         if (nextFocus >= 0) next.add(nextFocus);
         if (nextHover >= 0) next.add(nextHover);
+        const prevHover = hoverIndex;
         const changed = [];
         for (const i of litSet) {
             if (!next.has(i)) { highlightTargetT[i] = 0; activeHighlights.add(i); changed.push(i); }
         }
         for (const i of next) {
             if (!litSet.has(i)) { highlightTargetT[i] = 1; activeHighlights.add(i); changed.push(i); }
+        }
+        // Instant hover-out: when the transient hover sprite is released (or the
+        // cursor jumps to another sprite) and it isn't held lit by focus or
+        // marks, snap its scale + glow to 0 immediately instead of easing — the
+        // VIEW_2 disperse hover felt laggy lingering on fade-out. Focus/mark
+        // releases still ease via tickHighlights (this only touches the
+        // just-released hover index).
+        if (prevHover >= 0 && prevHover !== nextHover && prevHover !== nextFocus && !markSet.has(prevHover)) {
+            highlightT[prevHover] = 0;
+            highlightTargetT[prevHover] = 0;
+            activeHighlights.delete(prevHover);
+            writeInstance(prevHover);
         }
         if (focusIndex >= 0 && nextFocus !== focusIndex) lastFocusIndex = focusIndex;
         if (hoverIndex >= 0 && nextHover !== hoverIndex) lastHoverIndex = hoverIndex;

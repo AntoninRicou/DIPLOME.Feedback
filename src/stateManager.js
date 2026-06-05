@@ -2,7 +2,7 @@ const SPREAD = 5;
 const CAMERA_FOV_DEG = 75;
 const OVERVIEW_Z = SPREAD / (2 * Math.tan((CAMERA_FOV_DEG * Math.PI) / 360));
 const ALL_MAP_TYPES = ['mirror', 'trace', 'shift', 'replay'];
-const SINGLE_HOLD = 4;
+const SINGLE_HOLD = 5.5;
 const SINGLE_MORPH = 1;
 
 const STATES = {

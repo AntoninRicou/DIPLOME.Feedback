@@ -327,7 +327,11 @@ body:not([data-state="single"]) .corner-label.visible {
   box-sizing: border-box;
   z-index: 7;
   opacity: 0;
-  transition: opacity 600ms ease-out;
+  /* Gentle `ease` fade — same curve + speed as the interface view transitions
+     (Next button / image-select cross-fade) and identical to the interface
+     `.quadrant-text.dissolving`, so the per-quadrant text fades in/out with the
+     same soft fade on both screens. */
+  transition: opacity 500ms ease;
   /* Organic blue-grey glyph stroke — mirrors interface_nuxt's
      `.proximity-panel` (same --rotate-panel-bg layered text-shadow the rotate
      captions use). Inherited, so it covers both `.canvas-text-title` and
@@ -409,6 +413,14 @@ body:not([data-state="single"]) .canvas-text.visible {
 /* Same `:not([data-state="single"])` guard as `.corner-label` and
    `.canvas-text` — no component-title overlay shows in `single`. */
 body:not([data-state="single"]) #center-caption.visible {
+  opacity: 1;
+}
+/* Explore-others opt-out: the VIEW_4 single-path view legitimately shows a
+   centred caption ("Look for some previous user journey collaboration") while
+   project is in `single`. The `single-ok` class (set when interface emits
+   `allowSingle`) lifts that one caption past the guard above. Higher
+   specificity than `#center-caption` base, so it wins in single state too. */
+#center-caption.visible.single-ok {
   opacity: 1;
 }
 /* Rotating-intro mirror (VIEW_2 / VIEW_3) — matches interface_nuxt's rotating

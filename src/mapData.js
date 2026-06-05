@@ -2,7 +2,7 @@ const sources = {
     mirror: '/data/mirror.json',
     trace: '/data/umap_book2.json',
     shift: '/data/umap_semantic_llm.json',
-    replay: '/data/umap_replay.json',
+    replay: '/data/umap_spiral.json',
 };
 
 async function loadMapData(mapType) {

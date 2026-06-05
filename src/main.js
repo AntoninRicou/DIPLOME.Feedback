@@ -18,10 +18,10 @@ function main() {
   // sits on the same backdrop as the rest of project's views.
   if (isEmbedded) {
     document.body.dataset.canvasBg = 'gradient';
-    // Hover is gated by the embedder (VIEW_2's phased hover): hide the cursor
-    // and react to NOTHING on hover until the parent posts `view0:enable-hover`
-    // (when the "Explore…" prompt appears).
-    document.body.style.cursor = 'none';
+    // Hover/picking is gated by the embedder (VIEW_2's phased hover): react to
+    // NOTHING on hover until the parent posts `view0:enable-hover` (when the
+    // "Explore…" prompt appears). The cursor stays VISIBLE throughout — it used
+    // to be hidden until armed, but VIEW_2 now shows the mouse the whole time.
   }
   const apps = [];
   const containers = [1, 2, 3, 4].map(n => document.getElementById(`container-${n}`));
@@ -32,15 +32,14 @@ function main() {
   });
   let dispersePrimed = false;
   // Embed hover-gate: the parent posts `view0:enable-hover` when VIEW_2's
-  // "Explore…" prompt appears. Until then the cursor stays hidden and picking
-  // is off (no local sprite glow, no hover/click messages).
+  // "Explore…" prompt appears. Until then picking is off (no local sprite glow,
+  // no hover/click messages). The cursor is always visible regardless.
   let hoverArmed = false;
   let pickingEnabled = false;
   if (isEmbedded) {
     window.addEventListener('message', (e) => {
       if (e?.data?.type === 'view0:enable-hover') {
         hoverArmed = true;
-        document.body.style.cursor = '';
       }
     });
   }
@@ -135,16 +134,16 @@ function main() {
     }
     // Picking (local sprite glow + hover/click messages) is enabled only once
     // the embedder arms hover (VIEW_2 phase 2 — the "Explore…" prompt). Before
-    // that the cursor is hidden and nothing reacts to hover at all.
+    // that nothing reacts to hover at all (the cursor is still visible).
     if (isEmbedded && dispersePrimed && hoverArmed && !pickingEnabled) {
       const host = apps[0];
       if (host && host.object.enablePicking) {
         host.object.enablePicking({
-          // Tighter than the 36px default — VIEW_2's spawn-on-enter preview
-          // was firing on too many adjacent sprites at once because the picker
-          // grabbed any sprite within a fat radius. 9px keeps it generous for
-          // fast disperse motion without sweeping in unrelated neighbours.
-          hoverRadiusPx: 9,
+          // Forgiving enough that images are easy to catch on the moving
+          // disperse field. (Was 9px, which felt too twitchy — the cursor had
+          // to land almost dead-centre on a sprite.) Still well under the 36px
+          // default so it doesn't sweep in clearly-unrelated neighbours.
+          hoverRadiusPx: 18,
           onHover(imageId, pos) {
             const payload = { type: 'view0:image-hover', imageId };
             if (pos && typeof pos.x === 'number' && typeof pos.y === 'number') {
