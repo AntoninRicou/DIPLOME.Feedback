@@ -63,10 +63,10 @@ function main() {
   function setup() {
     console.log("Setting up the application...");
     stateManager.init();
-    createApp(1, 'trace');     // canvas-1 = tl = Trace  (component_1)
-    createApp(2, 'mirror');    // canvas-2 = tr = Mirror (component_2)
-    createApp(3, 'shift');     // canvas-3 = bl = Shift  (component_3)
-    createApp(4, 'replay');    // canvas-4 = br = Replay (component_4)
+    createApp(1, 'source');    // canvas-1 = tl = Source   (component_1)
+    createApp(2, 'form');      // canvas-2 = tr = Form     (component_2)
+    createApp(3, 'semantic');  // canvas-3 = bl = Semantic (component_3)
+    createApp(4, 'time');      // canvas-4 = br = Time     (component_4)
 
     if (!isEmbedded) setupSocketBridge();
     animate();

@@ -1,7 +1,10 @@
 const SPREAD = 5;
 const CAMERA_FOV_DEG = 75;
 const OVERVIEW_Z = SPREAD / (2 * Math.tan((CAMERA_FOV_DEG * Math.PI) / 360));
-const ALL_MAP_TYPES = ['mirror', 'trace', 'shift', 'replay'];
+const ALL_MAP_TYPES = ['form', 'source', 'semantic', 'time'];
+// Display names for the single-explore map label — the lowercase mapType keys
+// capitalised to match interface_nuxt's corner labels (Source/Form/Semantic/Time).
+const MAP_LABELS = { source: 'Source', form: 'Form', semantic: 'Semantic', time: 'Time' };
 const SINGLE_HOLD = 5.5;
 const SINGLE_MORPH = 1;
 
@@ -76,6 +79,12 @@ export function createStateManager({ containers, getApps, initial = 'single' }) 
   let singleActive = false;
   let singleTimer = 0;
   let singleCurrentMap = null;
+  // Whether the single-explore map label should track the cycling map. Set by
+  // the `set-map-label` directive (interface_nuxt enables it on entering the
+  // explore single view). Visibility also requires `singleActive`, so the
+  // boot single (VIEW_0/1) never shows it — only the explicitly-armed explore
+  // single does.
+  let mapLabelActive = false;
 
   // Per-canvas cameraZ overrides. When `set-canvas-zoom` fires for one
   // canvas, that canvas's cameraZ is interpolated from the current state's
@@ -139,12 +148,17 @@ export function createStateManager({ containers, getApps, initial = 'single' }) 
     if (name === 'single') {
       singleActive = true;
       singleTimer = SINGLE_HOLD;
-      singleCurrentMap = host?.mapType ?? 'mirror';
+      singleCurrentMap = host?.mapType ?? 'form';
+      updateMapLabel();
       apps.forEach(a => {
         if (a.isReady && a.object.resetFocus) a.object.resetFocus();
       });
     } else {
       singleActive = false;
+      // Leaving single hides the explore map label (visibility requires
+      // singleActive). The directive intent (mapLabelActive) is left as-is;
+      // boot/reconnect clears it via setMapLabel(false).
+      updateMapLabel();
       // Restore canvas-1 to its original map; the single-state demo cycle may
       // have morphed it away. Snap INSTANTLY (duration 0): this restore is a
       // cleanup, not a designed visual, and every single → other transition
@@ -186,7 +200,33 @@ export function createStateManager({ containers, getApps, initial = 'single' }) 
     const next = choices[Math.floor(Math.random() * choices.length)];
     host.object.morphTo(next, SINGLE_MORPH);
     singleCurrentMap = next;
+    updateMapLabel();
     singleTimer = SINGLE_HOLD + SINGLE_MORPH;
+  }
+
+  // Single-explore map label. When armed (`mapLabelActive`) AND project is in
+  // single, mirror the currently-displayed cycling map name into
+  // `#single-map-label` (top-left) and fade it in; otherwise fade it out.
+  // Pure DOM text + class mutation — no render-loop / state-machine coupling.
+  function updateMapLabel() {
+    const el = document.getElementById('single-map-label');
+    if (!el) return;
+    if (mapLabelActive && singleActive) {
+      el.textContent = MAP_LABELS[singleCurrentMap] ?? '';
+      el.classList.add('visible');
+    } else {
+      // Hide by removing `.visible` only — the text stays so it fades OUT
+      // through the opacity transition instead of vanishing instantly.
+      el.classList.remove('visible');
+    }
+  }
+
+  // `set-map-label` directive handler. Arms/disarms the explore map label;
+  // interface_nuxt enables it on entering the single explore view and clears
+  // it on Start over (fade) + on every (re)connect (hygiene).
+  function setMapLabel(active) {
+    mapLabelActive = active === true;
+    updateMapLabel();
   }
 
   function randomTarget() {
@@ -289,6 +329,7 @@ export function createStateManager({ containers, getApps, initial = 'single' }) 
     goTo,
     setCanvasOverride,
     shouldPanCanvas,
+    setMapLabel,
     get state() { return currentName; },
     list: () => Object.keys(STATES),
   };

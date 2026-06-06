@@ -45,6 +45,10 @@
      Style (weight, italic, letter-spacing) is independent — only size is
      locked. Edit here AND in interface_nuxt/app/app.vue's :root in lockstep. */
   --label-size: 1.15rem;
+  /* The per-quadrant interpretation text drawn on the canvas (.canvas-text-
+     title / -body) is sized independently of the label tier so it can read
+     larger on the big canvas without enlarging the corner labels. */
+  --canvas-text-size: 1.6rem;
 
   /* Mirrors interface_nuxt's --rotate-panel-bg: the light blue-grey (90%
      opacity) used for the organic "stroke" behind the rotating-intro
@@ -223,6 +227,38 @@ body[data-veil="on"]::before {
   filter: blur(3px);
 }
 
+/* VIEW_2 embed (disperse) structural cross — drawn INSIDE container-1, BEHIND
+   the transparent sprite canvas, so the cross reads BEHIND the spawning
+   images rather than on top of them. (The interface can only draw over the
+   opaque iframe; the disperse sprites live inside it, so the cross has to come
+   from here.) `isolation: isolate` gives container-1 its own stacking context
+   so the ::before's negative z-index lands ABOVE the container's gradient
+   background but BELOW the in-flow <canvas> (which is alpha:true — sprites
+   only — so the cross shows through behind them). Same tan lines + 5% inset
+   as `body::before`. Disperse-only, so only the VIEW_2 embed shows it
+   (exception #4); the standalone never enters disperse. */
+body[data-state="disperse"] #container-1 {
+  isolation: isolate;
+}
+body[data-state="disperse"] #container-1::before {
+  content: "";
+  position: absolute;
+  inset: 5%;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    linear-gradient(to bottom,
+      transparent calc(50% - 0.5px),
+      rgba(166, 154, 128, 0.85) calc(50% - 0.5px),
+      rgba(166, 154, 128, 0.85) calc(50% + 0.5px),
+      transparent calc(50% + 0.5px)),
+    linear-gradient(to right,
+      transparent calc(50% - 0.5px),
+      rgba(166, 154, 128, 0.85) calc(50% - 0.5px),
+      rgba(166, 154, 128, 0.85) calc(50% + 0.5px),
+      transparent calc(50% + 0.5px));
+}
+
 /* Interpretation veil — beige blurred overlay mirroring interface_nuxt's
    `.interpret-veil` (VIEW_4 `+` toggle). z: 5 sits above the canvas
    point-cloud and the structural cross (also z: 5, painted before it, so it
@@ -245,7 +281,7 @@ body[data-veil="on"]::before {
   opacity: 1;
 }
 
-/* Component corner labels — Mirror / Trace / Shift / Replay rendered
+/* Component corner labels — Source / Form / Semantic / Time rendered
    inside each canvas container, positioned at the canvas's outer
    corner. Mirrors interface_nuxt's `.corner-label` (app.vue) exactly —
    same content, same colour (#595b54), same warm glow, same monospace
@@ -254,13 +290,15 @@ body[data-veil="on"]::before {
    gated by `body[data-state]` (same condition as the structural cross
    on body::before). Each label's `data-position` mirrors its canvas's
    quadrant in `STATES.split.rects`:
-     canvas-1 = tl = Trace,   canvas-2 = tr = Mirror,
-     canvas-3 = bl = Shift,   canvas-4 = br = Replay.  */
+     canvas-1 = tl = Source,  canvas-2 = tr = Form,
+     canvas-3 = bl = Semantic, canvas-4 = br = Time.  */
 .corner-label {
   position: absolute;
   font-weight: 500;
   font-style: italic;
-  font-size: var(--label-size);
+  /* Same size as the canvas quadrant text (.canvas-text), not the --label-size
+     tier — on the project the corner labels read at the larger canvas size. */
+  font-size: var(--canvas-text-size);
   letter-spacing: 0.015em;
   color: #595b54;
   padding: 0.75rem 0.95rem;
@@ -303,6 +341,38 @@ body:not([data-state="single"]) .corner-label.visible {
      fades in. (Same perf reasoning as the `.contribute` glow rewrite.) */
   opacity: 1;
 }
+
+/* Single-explore map label — names the currently-displayed auto-cycling map
+   at the viewport's top-left while project is in the explore single view.
+   Unlike `.corner-label` (the per-canvas titles, structurally gated OFF in
+   `single`), this label is MADE for `single`: its own `.visible` class with
+   NO `:not([data-state="single"])` guard, fixed to the top-left of the
+   full-screen map. Driven by the `set-map-label` directive (on/off) and its
+   text rewritten every map cycle by stateManager. Typography mirrors
+   `.corner-label`, but it is its own selector (no `.corner-label` class) so
+   the all-on `set-corner-labels` sweep and the per-canvas visibility rules
+   can never reach it. */
+.single-map-label {
+  position: fixed;
+  top: 0;
+  left: 0;
+  font-weight: 500;
+  font-style: italic;
+  font-size: var(--canvas-text-size);
+  letter-spacing: 0.015em;
+  color: #595b54;
+  padding: 0.75rem 0.95rem;
+  pointer-events: none;
+  z-index: 6;
+  opacity: 0;
+  transition: opacity 600ms ease-out;
+  text-shadow:
+    0 0 8px rgba(255, 252, 230, 1),
+    0 0 20px rgba(255, 248, 220, 0.9),
+    0 0 42px rgba(255, 244, 210, 0.6),
+    0 0 75px rgba(255, 240, 200, 0.3);
+}
+.single-map-label.visible { opacity: 1; }
 
 /* Per-canvas text overlay — mirrors interface_nuxt's `.proximity-panel`
    (app.vue) typography exactly so the canvas-side text matches the
@@ -361,8 +431,9 @@ body:not([data-state="single"]) .canvas-text.visible {
   /* Mirrors `.corner-label` typography (weight 500, italic, same size +
      tracking) so the canvas-text title and the four corner labels read
      as the same typographic tier. Pairs with interface_nuxt's
-     `.proximity-panel-title`. */
-  font-size: var(--label-size);
+     `.proximity-panel-title`. Sized via --canvas-text-size so it can be
+     larger on the canvas than the corner labels. */
+  font-size: var(--canvas-text-size);
   font-weight: 500;
   font-style: italic;
   letter-spacing: 0.015em;
@@ -374,7 +445,7 @@ body:not([data-state="single"]) .canvas-text.visible {
      (--label-size). Mirrors `.proximity-panel-body` in interface_nuxt's
      app.vue — keep family/size/weight/line-height in lockstep. */
   font-family: 'ABC Otto', serif;
-  font-size: var(--label-size);
+  font-size: var(--canvas-text-size);
   font-weight: 500;
   font-style: normal;
   line-height: 1.15;
@@ -416,12 +487,18 @@ body:not([data-state="single"]) #center-caption.visible {
   opacity: 1;
 }
 /* Explore-others opt-out: the VIEW_4 single-path view legitimately shows a
-   centred caption ("Look for some previous user journey collaboration") while
-   project is in `single`. The `single-ok` class (set when interface emits
+   centred caption ("See how you move across proximity maps and other
+   participants journeys.") while project is in `single`. The `single-ok` class (set when interface emits
    `allowSingle`) lifts that one caption past the guard above. Higher
    specificity than `#center-caption` base, so it wins in single state too. */
 #center-caption.visible.single-ok {
   opacity: 1;
+}
+/* The explore-others project caption is meant to read on ONE line (it's the
+   only single-ok caption). Override the default pre-wrap/max-width wrapping. */
+#center-caption.single-ok {
+  white-space: nowrap;
+  max-width: none;
 }
 /* Rotating-intro mirror (VIEW_2 / VIEW_3) — matches interface_nuxt's rotating
    caption look: larger (--label-size, vs the base 0.95rem modes-caption size)
@@ -430,7 +507,7 @@ body:not([data-state="single"]) #center-caption.visible {
    `.caption-text` in the interface views. Only applies when the caption was
    emitted with `variant: 'rotate'`; modes-caption / image-credit stay plain. */
 #center-caption.rotate {
-  font-size: calc(var(--label-size) * 2);
+  font-size: 2.3rem;
   /* Match the interface caption's fade duration + easing (the base
      center-caption uses its own 600ms). The empty-beat enter delay is added
      only while entering (`.rotate.visible` below) — leaving uses 0 delay,

@@ -31,7 +31,7 @@
     </div>
   </div>
   <div id="container-4" class="container">
-    <span class="corner-label" data-position="br">Collaborative</span>
+    <span class="corner-label" data-position="br">Time</span>
     <div class="canvas-text" data-canvas="3">
       <p class="canvas-text-title"></p>
       <p class="canvas-text-body"></p>
@@ -40,6 +40,13 @@
   <div id="render-mask" aria-hidden="true"></div>
   <div id="render-veil" aria-hidden="true"></div>
   <p id="center-caption" aria-hidden="true"></p>
+  <!-- Single-explore map label: names the auto-cycling map at the viewport's
+       top-left while project is in the explore single view. Driven by the
+       `set-map-label` directive (on/off); its text is rewritten every map
+       cycle by stateManager. Deliberately NOT given the `.corner-label`
+       class, so the per-canvas corner-label rules / `set-corner-labels`
+       sweep can never touch it. -->
+  <span id="single-map-label" aria-hidden="true"></span>
   <script type="module" src="/src/main.js"></script>
 </body>
 

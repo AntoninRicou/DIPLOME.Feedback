@@ -1,8 +1,8 @@
 const sources = {
-    mirror: '/data/mirror.json',
-    trace: '/data/umap_book2.json',
-    shift: '/data/umap_semantic_llm.json',
-    replay: '/data/umap_spiral.json',
+    form: '/data/mirror.json',
+    source: '/data/umap_book2.json',
+    semantic: '/data/umap_semantic_llm.json',
+    time: '/data/umap_spiral.json',
 };
 
 async function loadMapData(mapType) {

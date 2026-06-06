@@ -1,11 +1,21 @@
 import * as THREE from 'three';
+import { LineSegments2 } from 'three/examples/jsm/lines/LineSegments2.js';
+import { LineSegmentsGeometry } from 'three/examples/jsm/lines/LineSegmentsGeometry.js';
+import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
 
 const DEFAULT_COLOR = 0x88ccff;
 const LINE_Z = 0.005;
+// Core path line thickness in CSS pixels. Plain WebGL lines ignore linewidth
+// on most desktop GPUs (clamped to 1px), so the path core is drawn with a
+// fat-line material (LineSegments2) whose width this controls. Bump for a
+// thicker path. The white glow trail (below) is independent and unchanged.
+const PATH_LINEWIDTH = 1.6;
 const GLOW_Z = 0.003;
 const GLOW_FACTOR = 2.4;
 const GLOW_OPACITY = 0.55;
 const GLOW_CAPACITY = 128;
+// White glow trail recoloured to warm beige (the "white path" → f9ecd0).
+const GLOW_COLOR = 0xf9ecd0;
 
 // Ghost path — transient hover-feedback segment from the active central
 // image to whichever related image the user is currently hovering. Warm
@@ -41,19 +51,41 @@ const GLOW_FS = /* glsl */ `
 
 export function createPathTrace({ scene, points }) {
     const segments = [];
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(0), 3));
-    geometry.setAttribute('color', new THREE.BufferAttribute(new Float32Array(0), 3));
-    const material = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.9 });
-    const mesh = new THREE.LineSegments(geometry, material);
+    // Fat-line core (LineSegments2) so the path thickness (PATH_LINEWIDTH) is
+    // honoured on desktop WebGL (plain WebGL lines clamp to 1px). The geometry
+    // buffers are pre-allocated ONCE at MAX_SEGMENTS capacity and updated
+    // in-place each tick (writing into posArr/colArr + bumping the interleaved
+    // buffers' versions, then setting geometry.instanceCount = live segments).
+    // Recreating the attributes every frame (setPositions per tick) left only
+    // the first segment rendering — this in-place pattern draws all of them.
+    // `resolution` must track the canvas pixel size for correct screen-space
+    // width — seeded here, kept current via setResolution() (app.js init + resize).
+    const MAX_SEGMENTS = 64;
+    const posArr = new Float32Array(MAX_SEGMENTS * 6); // xyz,xyz per segment
+    const colArr = new Float32Array(MAX_SEGMENTS * 6); // rgb,rgb per segment
+    const geometry = new LineSegmentsGeometry();
+    geometry.setPositions(posArr);
+    geometry.setColors(colArr);
+    geometry.instanceCount = 0;
+    const posBuffer = geometry.getAttribute('instanceStart').data;      // shared start/end
+    const colBuffer = geometry.getAttribute('instanceColorStart').data; // shared start/end
+    const material = new LineMaterial({
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.9,
+        linewidth: PATH_LINEWIDTH,
+    });
+    material.resolution.set(window.innerWidth, window.innerHeight);
+    const mesh = new LineSegments2(geometry, material);
     mesh.frustumCulled = false;
+    mesh.visible = false;
     scene.add(mesh);
 
     const glowMat = new THREE.ShaderMaterial({
         vertexShader: GLOW_VS,
         fragmentShader: GLOW_FS,
         uniforms: {
-            uColor: { value: new THREE.Color(0xffffff) },
+            uColor: { value: new THREE.Color(GLOW_COLOR) },
             uOpacity: { value: GLOW_OPACITY },
             uEdge: { value: 3.0 / (2.0 * GLOW_FACTOR) },
         },
@@ -93,7 +125,7 @@ export function createPathTrace({ scene, points }) {
     // pan is suppressed (VIEW_4 hover-unzoom). Roughly matches the LERP
     // pan settle time in split state so panning and non-panning canvases
     // finish drawing the segment around the same wall-clock moment.
-    const SEGMENT_DRAW_DURATION = 1.0;
+    const SEGMENT_DRAW_DURATION = 2.0; // doubled from 1.0 — slower path draw
 
     function addSegment(fromId, toId, color = DEFAULT_COLOR, useTimer = false) {
         if (!fromId || !toId) return;
@@ -164,33 +196,31 @@ export function createPathTrace({ scene, points }) {
             }
         }
 
-        const posBuf = new Float32Array(segments.length * 6);
-        const colBuf = new Float32Array(segments.length * 6);
+        // Write every segment's endpoints + colour straight into the
+        // pre-allocated fat-line buffers, then grow instanceCount to match.
         let n = 0;
         visited.clear();
         for (const s of segments) {
+            if (n >= MAX_SEGMENTS * 6) break;
             const a = points.getPosition(s.fromId);
             const b = points.getPosition(s.toId);
             if (!a || !b) continue;
             const t = s.progress;
             const endX = a.x + (b.x - a.x) * t;
             const endY = a.y + (b.y - a.y) * t;
-            posBuf[n] = a.x; posBuf[n + 1] = a.y; posBuf[n + 2] = LINE_Z;
-            posBuf[n + 3] = endX; posBuf[n + 4] = endY; posBuf[n + 5] = LINE_Z;
+            posArr[n] = a.x; posArr[n + 1] = a.y; posArr[n + 2] = LINE_Z;
+            posArr[n + 3] = endX; posArr[n + 4] = endY; posArr[n + 5] = LINE_Z;
             tmpColor.setHex(s.color);
-            colBuf[n] = tmpColor.r; colBuf[n + 1] = tmpColor.g; colBuf[n + 2] = tmpColor.b;
-            colBuf[n + 3] = tmpColor.r; colBuf[n + 4] = tmpColor.g; colBuf[n + 5] = tmpColor.b;
+            colArr[n] = tmpColor.r; colArr[n + 1] = tmpColor.g; colArr[n + 2] = tmpColor.b;
+            colArr[n + 3] = tmpColor.r; colArr[n + 4] = tmpColor.g; colArr[n + 5] = tmpColor.b;
             n += 6;
             visited.add(s.fromId);
             if (t >= 0.999) visited.add(s.toId);
         }
-        const posTrimmed = n === posBuf.length ? posBuf : posBuf.slice(0, n);
-        const colTrimmed = n === colBuf.length ? colBuf : colBuf.slice(0, n);
-        geometry.setAttribute('position', new THREE.BufferAttribute(posTrimmed, 3));
-        geometry.setAttribute('color', new THREE.BufferAttribute(colTrimmed, 3));
-        geometry.attributes.position.needsUpdate = true;
-        geometry.attributes.color.needsUpdate = true;
-        geometry.computeBoundingSphere();
+        posBuffer.needsUpdate = true;
+        colBuffer.needsUpdate = true;
+        geometry.instanceCount = n / 6;
+        mesh.visible = n > 0;
 
         let g = 0;
         for (const id of visited) {
@@ -245,5 +275,11 @@ export function createPathTrace({ scene, points }) {
         }
     }
 
-    return { addSegment, truncate, clear, tick, setGhost, clearGhost, get count() { return segments.length; } };
+    // Keep the fat-line material's resolution in sync with the canvas pixel
+    // size so PATH_LINEWIDTH renders at the intended screen thickness.
+    function setResolution(width, height) {
+        if (width > 0 && height > 0) material.resolution.set(width, height);
+    }
+
+    return { addSegment, truncate, clear, tick, setGhost, clearGhost, setResolution, get count() { return segments.length; } };
 }

@@ -21,7 +21,9 @@ function app({ container, id, mapType, state, appIsReady }) {
     // (instead of LERP's slow exponential tail leaving the camera drifting
     // for seconds after the zoom completes).
     let positionTween = null;
-    const LERP = 0.015;
+    // Halved from 0.015 to slow the camera pan — and the path segment draw
+    // that rides it (segment.progress = panProgress) — to roughly 2× longer.
+    const LERP = 0.0075;
     const { clientWidth: width, clientHeight: height } = container;
     const viewAspect = window.innerWidth / window.innerHeight;
 
@@ -53,6 +55,7 @@ function app({ container, id, mapType, state, appIsReady }) {
         data = mapData;
         points = createPointsManager({ scene, data, atlas: atlasMeta, atlasTexture, viewAspect, canvasId: id });
         pathTrace = createPathTrace({ scene, points });
+        pathTrace.setResolution(container.clientWidth, container.clientHeight);
         if (pendingHighlightPreset && points.setHighlightPreset) {
             points.setHighlightPreset(pendingHighlightPreset);
         }
@@ -77,6 +80,7 @@ function app({ container, id, mapType, state, appIsReady }) {
         camera.aspect = width / height;
         camera.updateProjectionMatrix();
         renderer.setSize(width, height, false);
+        if (pathTrace) pathTrace.setResolution(width, height);
     }
 
     function setCameraZ(z) {

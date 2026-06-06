@@ -1,4 +1,4 @@
-import { pickRandom as pickRandomColor } from './pathColors.js';
+import { colorForQuadrant } from './pathColors.js';
 
 export function createCommands(apps, stateManager, pathPlayer) {
   function focusOnId(pointId) {
@@ -78,9 +78,11 @@ export function createCommands(apps, stateManager, pathPlayer) {
     });
   }
 
-  function addPathSegment(fromId, toId) {
+  function addPathSegment(fromId, toId, quadrant) {
     if (!fromId || !toId) return;
-    const color = pickRandomColor();
+    // Colour by the clicked image's quadrant (0=tl,1=tr,2=bl,3=br), with a
+    // single global override available. See pathColors.js to tune/erase.
+    const color = colorForQuadrant(quadrant);
     apps.forEach((a, i) => {
       if (!a.isReady) return;
       // Per-canvas timer fallback: when this canvas has its pan
@@ -118,8 +120,8 @@ export function createCommands(apps, stateManager, pathPlayer) {
     document.body.dataset.canvasBg = mode;
   }
 
-  // Reveal / hide the four component corner labels (Mirror / Trace /
-  // Shift / Replay) rendered inside each canvas container. Driven by
+  // Reveal / hide the four component corner labels (Source / Form /
+  // Semantic / Time) rendered inside each canvas container. Driven by
   // an explicit wire directive instead of body[data-state] so the
   // labels can be coordinated with interface_nuxt's own corner-label
   // fade-in (currently triggered at the end of VIEW_3's caption timer).
@@ -173,6 +175,14 @@ export function createCommands(apps, stateManager, pathPlayer) {
       // non-empty caption overwrites the text and resets the variant class.
       el.classList.remove('visible');
     }
+  }
+
+  // Single-explore map label — arms/disarms the top-left label that names the
+  // auto-cycling map while project is in the explore single view. The label
+  // TEXT is owned by stateManager (it knows which map the single cycle is
+  // currently showing); this just toggles whether it tracks + shows.
+  function setMapLabel(payload) {
+    stateManager.setMapLabel(payload?.active === true);
   }
 
   // Interpretation veil — beige blurred overlay over the four canvases that
@@ -327,5 +337,5 @@ export function createCommands(apps, stateManager, pathPlayer) {
     }
   }
 
-  return { focusOnId, pickRandomCommonId, setState, startPath, simulatePath, clearPaths, addPathSegment, truncatePath, setMask, setCanvasBg, setHighlight, setMarks, setGhostPath, setCanvasZoom, setCanvasOverview, setCornerLabels, setCornerLabel, setCanvasText, setCenterCaption, setCanvasVeil };
+  return { focusOnId, pickRandomCommonId, setState, startPath, simulatePath, clearPaths, addPathSegment, truncatePath, setMask, setCanvasBg, setHighlight, setMarks, setGhostPath, setCanvasZoom, setCanvasOverview, setCornerLabels, setCornerLabel, setCanvasText, setCenterCaption, setCanvasVeil, setMapLabel };
 }

@@ -26,7 +26,7 @@ export function createCommandsManager(actions) {
     },
 
     'path-segment'(payload) {
-      actions.addPathSegment(payload?.fromId, payload?.toId);
+      actions.addPathSegment(payload?.fromId, payload?.toId, payload?.quadrant);
     },
 
     'path-truncate'(payload) {
@@ -80,6 +80,10 @@ export function createCommandsManager(actions) {
 
     'set-canvas-veil'(payload) {
       actions.setCanvasVeil(payload);
+    },
+
+    'set-map-label'(payload) {
+      actions.setMapLabel(payload);
     },
   };
 

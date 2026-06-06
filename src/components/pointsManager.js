@@ -193,6 +193,17 @@ function createPointsManager({ scene, data, atlas, atlasTexture, spread = 5, thu
     // at once instead of just the last selected image.
     const markSet = new Set();
 
+    // Extra hover emphasis on top of the mark scale. When a MARKED sprite is
+    // hovered (the explore-others circle: every path image is marked, so they
+    // all sit at the same big scale), a plain glow doesn't make the hovered one
+    // stand out. `hoverT` eases an additional scale boost + a top z-lift onto
+    // the hovered sprite so it grows above the others, the way a hovered sprite
+    // reads in VIEW_2 (where it's the only lit one). Scoped to marked sprites,
+    // so VIEW_2 and every non-marked hover are unchanged.
+    const hoverT = new Float32Array(count);
+    const hoverTargetT = new Float32Array(count);
+    const HOVER_EXTRA_SCALE = 0.5; // hovered marked sprite → mark scale × 1.5
+
     function idToIdx(id) {
         return id == null ? -1 : (idToIndex.has(id) ? idToIndex.get(id) : -1);
     }
@@ -214,6 +225,13 @@ function createPointsManager({ scene, data, atlas, atlasTexture, spread = 5, thu
         for (const i of next) {
             if (!litSet.has(i)) { highlightTargetT[i] = 1; activeHighlights.add(i); changed.push(i); }
         }
+        // Hover-emphasis target: the new hover sprite eases its boost in, the
+        // old one eases it out. Tracked independently of lit membership so a
+        // marked sprite (always lit) still gains/loses the boost on hover.
+        if (prevHover !== nextHover) {
+            if (prevHover >= 0) { hoverTargetT[prevHover] = 0; activeHighlights.add(prevHover); changed.push(prevHover); }
+            if (nextHover >= 0) { hoverTargetT[nextHover] = 1; activeHighlights.add(nextHover); changed.push(nextHover); }
+        }
         // Instant hover-out: when the transient hover sprite is released (or the
         // cursor jumps to another sprite) and it isn't held lit by focus or
         // marks, snap its scale + glow to 0 immediately instead of easing — the
@@ -223,6 +241,8 @@ function createPointsManager({ scene, data, atlas, atlasTexture, spread = 5, thu
         if (prevHover >= 0 && prevHover !== nextHover && prevHover !== nextFocus && !markSet.has(prevHover)) {
             highlightT[prevHover] = 0;
             highlightTargetT[prevHover] = 0;
+            hoverT[prevHover] = 0;
+            hoverTargetT[prevHover] = 0;
             activeHighlights.delete(prevHover);
             writeInstance(prevHover);
         }
@@ -340,8 +360,14 @@ function createPointsManager({ scene, data, atlas, atlasTexture, spread = 5, thu
             let v = highlightT[i] + (target - highlightT[i]) * k;
             if (Math.abs(v - target) < 0.0008) v = target;
             highlightT[i] = v;
+            // Ease the hover-emphasis boost on the same clock.
+            const ht = hoverTargetT[i];
+            let hv = hoverT[i] + (ht - hoverT[i]) * k;
+            if (Math.abs(hv - ht) < 0.0008) hv = ht;
+            hoverT[i] = hv;
             writeInstance(i);
-            if (v === target && target === 0) toRemove.push(i);
+            // Stop ticking only when BOTH tracks have settled at rest.
+            if (v === target && target === 0 && hv === ht && ht === 0) toRemove.push(i);
         }
         for (const i of toRemove) activeHighlights.delete(i);
         mesh.instanceMatrix.needsUpdate = true;
@@ -386,7 +412,14 @@ function createPointsManager({ scene, data, atlas, atlasTexture, spread = 5, thu
 
     function writeInstance(i) {
         const e = easeInOutCubic(highlightT[i]);
-        const scaleMul = 1 + (activeHighlightScale - 1) * e;
+        let scaleMul = 1 + (activeHighlightScale - 1) * e;
+        // Extra hover emphasis — only for a MARKED sprite that's hovered (the
+        // explore-others circle). Grows it past the uniform mark scale so the
+        // hovered image stands out; non-marked hovers are unaffected. The flag
+        // is true on hover-in (target set) through fade-out (eased value > 0),
+        // so the z-lift lands instantly while the scale still eases.
+        const markedHover = markSet.has(i) && (hoverTargetT[i] > 0 || hoverT[i] > 0.01);
+        if (markedHover) scaleMul *= 1 + HOVER_EXTRA_SCALE * easeInOutCubic(hoverT[i]);
         // z lift is binary, NOT eased — instant on hover/focus set,
         // held through fade-out. Hover ranks STRICTLY above focus so a
         // hovered sprite that overlaps spatially with the focused
@@ -400,6 +433,9 @@ function createPointsManager({ scene, data, atlas, atlasTexture, spread = 5, thu
             const isFocus = i === focusIndex || (focusIndex < 0 && i === lastFocusIndex);
             z = isFocus ? 0.01 : 0.02;
         }
+        // A hovered marked sprite rises ABOVE the other marks (0.02) so it's
+        // never occluded by a neighbouring path image.
+        if (markedHover) z = 0.03;
         setInstance(i, scaleMul, z);
     }
 
