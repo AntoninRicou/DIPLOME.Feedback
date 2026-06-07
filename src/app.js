@@ -173,6 +173,25 @@ function app({ container, id, mapType, state, appIsReady }) {
         points.setFocus(pointId);
     }
 
+    // Screen-space position (viewport px) of a point's sprite — for DOM
+    // overlays (the map-words labels). Projects the point's world (x, y)
+    // through the live camera, so it tracks the sprite as the map morphs /
+    // the camera moves. Returns null if the id isn't in this canvas's dataset
+    // or the point is off-screen.
+    const screenProjected = new THREE.Vector3();
+    function getScreenPosition(pointId) {
+        if (!points || !camera || !canvas) return null;
+        const pos = points.getPosition(pointId);
+        if (!pos) return null;
+        const rect = canvas.getBoundingClientRect();
+        screenProjected.set(pos.x, pos.y, 0).project(camera);
+        if (screenProjected.z < -1 || screenProjected.z > 1) return null;
+        return {
+            x: rect.left + (screenProjected.x * 0.5 + 0.5) * rect.width,
+            y: rect.top + (1 - (screenProjected.y * 0.5 + 0.5)) * rect.height,
+        };
+    }
+
     // Pan the camera to explicit map coordinates without binding a focus
     // target. Used by `set-canvas-overview` (VIEW_4 hover-unzoom) to slide
     // a canvas back to map origin while preserving the persistent focus
@@ -372,7 +391,8 @@ function app({ container, id, mapType, state, appIsReady }) {
 
     setup();
 
-    return { animate, focusOn, setCameraTarget, getIds, addPathSegment, truncatePath, clearPath, setGhostPath, resetFocus, resize, setCameraZ, setDriftTarget, morphTo, enterDisperse, exitDisperse, enablePicking, highlight, setMarks, setHighlightPreset, getPanProgress }
+    function fadeOutPath() { if (pathTrace) pathTrace.fadeOut(0.6); }
+    return { animate, focusOn, getScreenPosition, setCameraTarget, getIds, addPathSegment, truncatePath, clearPath, fadeOutPath, setGhostPath, resetFocus, resize, setCameraZ, setDriftTarget, morphTo, enterDisperse, exitDisperse, enablePicking, highlight, setMarks, setHighlightPreset, getPanProgress }
 }
 
 export default app;

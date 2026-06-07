@@ -85,6 +85,14 @@ export function createCommandsManager(actions) {
     'set-map-label'(payload) {
       actions.setMapLabel(payload);
     },
+
+    'path-fade-out'() {
+      actions.pathFadeOut();
+    },
+
+    'set-map-words'(payload) {
+      actions.setMapWords(payload);
+    },
   };
 
   return {

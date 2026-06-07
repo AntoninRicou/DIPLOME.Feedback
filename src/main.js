@@ -5,6 +5,7 @@ import { createCommands } from './commands.js';
 import { createCommandsManager } from './commandsManager.js';
 import { createStateManager } from './stateManager.js';
 import { createPathPlayer } from './pathPlayer.js';
+import { createMapWords } from './mapWords.js';
 import { pickRandom as pickRandomColor } from './pathColors.js';
 import './style.css';
 function main() {
@@ -43,6 +44,10 @@ function main() {
       }
     });
   }
+  // Map-words overlay (explore-single per-zone labels). Driven by set-map-words
+  // + a per-frame update() below; reads the host canvas (apps[0]) for sprite
+  // screen positions and the stateManager for the current map / morph state.
+  const mapWords = createMapWords();
   const pathPlayer = createPathPlayer({
     stepInterval: 2.5,
     dwellTime: 1.0,
@@ -74,7 +79,7 @@ function main() {
 
   function setupSocketBridge() {
     connect();
-    const actions = createCommands(apps, stateManager, pathPlayer);
+    const actions = createCommands(apps, stateManager, pathPlayer, mapWords);
     const manager = createCommandsManager(actions);
     manager.register(on);
     window.api = {
@@ -165,6 +170,13 @@ function main() {
         app.object.animate(dt);
       }
     });
+
+    // Reposition the explore-single map-words overlay against the host canvas's
+    // live sprite positions. Standalone only (the embed has no single view).
+    if (!isEmbedded) {
+      const single = stateManager.state === 'single';
+      mapWords.update(apps, single ? stateManager.singleMap : null, single && stateManager.singleSettled);
+    }
 
     requestAnimationFrame(animate);
   }

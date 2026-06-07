@@ -342,17 +342,14 @@ body:not([data-state="single"]) .corner-label.visible {
   opacity: 1;
 }
 
-/* Single-explore map label — names the currently-displayed auto-cycling map
-   at the viewport's top-left while project is in the explore single view.
-   Unlike `.corner-label` (the per-canvas titles, structurally gated OFF in
-   `single`), this label is MADE for `single`: its own `.visible` class with
-   NO `:not([data-state="single"])` guard, fixed to the top-left of the
-   full-screen map. Driven by the `set-map-label` directive (on/off) and its
-   text rewritten every map cycle by stateManager. Typography mirrors
-   `.corner-label`, but it is its own selector (no `.corner-label` class) so
-   the all-on `set-corner-labels` sweep and the per-canvas visibility rules
-   can never reach it. */
-.single-map-label {
+/* Explore-single map name label — shows "Source", "Form", "Semantic", or
+   "Time" top-left while the explore-single view cycles through maps.
+   Separate class from `.corner-label` (which is per-canvas and gated OFF in
+   `single`). Same visual parameters: size, weight, italic, glow, colour.
+   The element always carries this class in HTML so the base styles apply
+   immediately — `.visible` just transitions opacity to 1.
+   Driven by the `set-map-label` directive + stateManager map-cycle updates. */
+.explore-map-label {
   position: fixed;
   top: 0;
   left: 0;
@@ -372,7 +369,43 @@ body:not([data-state="single"]) .corner-label.visible {
     0 0 42px rgba(255, 244, 210, 0.6),
     0 0 75px rgba(255, 240, 200, 0.3);
 }
-.single-map-label.visible { opacity: 1; }
+.explore-map-label.visible { opacity: 1; }
+
+/* Map-words overlay — the per-zone "most characteristic word" labels spread
+   across the explore-single Form / Source map. The container fades as a whole
+   (in on map settle, out during the map-cycle morph); each `.map-word` is
+   absolutely positioned and moved per frame to its representative sprite's
+   screen position (transform set in JS: translate(-50%,-50%) translate(x,y)).
+   Driven by set-map-words + mapWords.js. */
+#map-words {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 6;
+  opacity: 0;
+  transition: opacity 600ms ease-out;
+}
+#map-words.visible { opacity: 1; }
+.map-word {
+  position: absolute;
+  top: 0;
+  left: 0;
+  white-space: nowrap;
+  font-weight: 500;
+  font-style: italic;
+  font-size: var(--label-size);
+  letter-spacing: 0.015em;
+  color: #595b54;
+  /* Blue-grey organic stroke (same as the rotate captions / canvas-text) so the
+     words stay legible over the point field. */
+  text-shadow:
+    0 0 4px var(--rotate-panel-bg),
+    0 0 6px var(--rotate-panel-bg),
+    0 0 9px var(--rotate-panel-bg),
+    0 0 12px var(--rotate-panel-bg),
+    0 0 15px var(--rotate-panel-bg);
+  will-change: transform;
+}
 
 /* Per-canvas text overlay — mirrors interface_nuxt's `.proximity-panel`
    (app.vue) typography exactly so the canvas-side text matches the

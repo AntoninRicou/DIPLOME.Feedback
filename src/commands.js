@@ -1,6 +1,6 @@
 import { colorForQuadrant } from './pathColors.js';
 
-export function createCommands(apps, stateManager, pathPlayer) {
+export function createCommands(apps, stateManager, pathPlayer, mapWords) {
   function focusOnId(pointId) {
     if (!pointId) return;
     console.log('Focusing on', pointId);
@@ -127,13 +127,27 @@ export function createCommands(apps, stateManager, pathPlayer) {
   // fade-in (currently triggered at the end of VIEW_3's caption timer).
   function setCornerLabels(payload) {
     const visible = payload?.visible === true;
-    document.body.dataset.cornerLabels = visible ? 'visible' : '';
+    const els = document.querySelectorAll('.corner-label');
+    if (!visible) {
+      // INSTANT hide. The base `.corner-label` carries a 600ms opacity
+      // transition for the VIEW_3 reveal (fade-in). That same transition also
+      // animates the fade-OUT when clearing, so a stale-visible label (project
+      // left in split/overview from a prior run, a reconnect, or dev HMR) would
+      // fade out over 600ms when this defensive clear fires — and the
+      // VIEW_1→VIEW_2 overview reveal (gated on the variable disperse burst)
+      // sometimes catches that tail, flashing the top-left "Source" label.
+      // Suppress the transition so the clear is a hard cut with no visible tail.
+      els.forEach((el) => { el.style.transition = 'none'; });
+      document.body.dataset.cornerLabels = '';
+      els.forEach((el) => el.classList.remove('visible'));
+      void document.body.offsetWidth; // reflow commits opacity 0 with no transition
+      els.forEach((el) => { el.style.transition = ''; });
+      return;
+    }
+    document.body.dataset.cornerLabels = 'visible';
     // Keep the per-element `.visible` path coherent with the all-or-nothing
-    // path: the boot clear (`visible=false`) must wipe any per-quadrant
-    // reveals set during VIEW_3, and an all-on re-asserts every label.
-    document.querySelectorAll('.corner-label').forEach((el) => {
-      el.classList.toggle('visible', visible);
-    });
+    // path: an all-on re-asserts every label (600ms fade-in preserved).
+    els.forEach((el) => el.classList.add('visible'));
   }
 
   // Per-quadrant corner-label reveal. Granular sibling of setCornerLabels —
@@ -183,6 +197,18 @@ export function createCommands(apps, stateManager, pathPlayer) {
   // currently showing); this just toggles whether it tracks + shows.
   function setMapLabel(payload) {
     stateManager.setMapLabel(payload?.active === true);
+  }
+
+  // Fade path line + glow to invisible over 600 ms (Start over).
+  // Opacity is restored to defaults on the next path-clear (boot handshake).
+  function pathFadeOut() {
+    apps.forEach(a => { if (a.isReady && a.object.fadeOutPath) a.object.fadeOutPath(); });
+  }
+
+  // Map-words overlay data — the per-zone "characteristic word" labels for the
+  // Form and Source maps in the explore-single view. Empty arrays disarm it.
+  function setMapWords(payload) {
+    if (mapWords) mapWords.setLabels(payload);
   }
 
   // Interpretation veil — beige blurred overlay over the four canvases that
@@ -337,5 +363,5 @@ export function createCommands(apps, stateManager, pathPlayer) {
     }
   }
 
-  return { focusOnId, pickRandomCommonId, setState, startPath, simulatePath, clearPaths, addPathSegment, truncatePath, setMask, setCanvasBg, setHighlight, setMarks, setGhostPath, setCanvasZoom, setCanvasOverview, setCornerLabels, setCornerLabel, setCanvasText, setCenterCaption, setCanvasVeil, setMapLabel };
+  return { focusOnId, pickRandomCommonId, setState, startPath, simulatePath, clearPaths, addPathSegment, truncatePath, setMask, setCanvasBg, setHighlight, setMarks, setGhostPath, setCanvasZoom, setCanvasOverview, setCornerLabels, setCornerLabel, setCanvasText, setCenterCaption, setCanvasVeil, setMapLabel, setMapWords, pathFadeOut };
 }

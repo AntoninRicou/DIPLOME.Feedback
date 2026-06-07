@@ -281,5 +281,44 @@ export function createPathTrace({ scene, points }) {
         if (width > 0 && height > 0) material.resolution.set(width, height);
     }
 
-    return { addSegment, truncate, clear, tick, setGhost, clearGhost, setResolution, get count() { return segments.length; } };
+    // Fade the path line + glow to invisible over `durationSec` seconds.
+    // Driven by the `path-fade-out` directive (Start over). The opacity
+    // values are restored to their defaults when `clear()` is next called
+    // (on boot-handshake path-clear) so a fresh session starts at full opacity.
+    let fadeTarget = null; // { duration, elapsed, fromLine, fromGlow } or null
+    const BASE_LINE_OPACITY = 0.9;
+    const BASE_GLOW_OPACITY = GLOW_OPACITY;
+
+    function fadeOut(durationSec = 0.6) {
+        fadeTarget = {
+            duration: durationSec,
+            elapsed: 0,
+            fromLine: material.opacity,
+            fromGlow: glowMat.uniforms.uOpacity.value,
+        };
+    }
+
+    // Hook into tick — advance fade tween each frame.
+    const _originalTick = tick;
+    function tickWithFade(panProgress = 1, dt = 0) {
+        _originalTick(panProgress, dt);
+        if (!fadeTarget) return;
+        fadeTarget.elapsed += dt;
+        const t = Math.min(1, fadeTarget.elapsed / fadeTarget.duration);
+        const e = t * (2 - t); // ease-out — matches CSS ease-out on #map-words / .explore-map-label
+        material.opacity = fadeTarget.fromLine * (1 - e);
+        glowMat.uniforms.uOpacity.value = fadeTarget.fromGlow * (1 - e);
+        if (t >= 1) fadeTarget = null;
+    }
+
+    // Restore default opacities on clear so a fresh session starts correctly.
+    const _originalClear = clear;
+    function clearWithOpacityReset() {
+        _originalClear();
+        material.opacity = BASE_LINE_OPACITY;
+        glowMat.uniforms.uOpacity.value = BASE_GLOW_OPACITY;
+        fadeTarget = null;
+    }
+
+    return { addSegment, truncate, clear: clearWithOpacityReset, tick: tickWithFade, fadeOut, setGhost, clearGhost, setResolution, get count() { return segments.length; } };
 }

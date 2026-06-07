@@ -6,6 +6,20 @@
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>FEEDBACK THREE MAP</title>
+  <!-- FOUC guard. The bundled style.css is injected by main.js (dev) / loaded
+       as a separate asset (build), so for one paint the body can render the
+       baked-in corner-label text ("Source" / "Form" / "Semantic" / "Time") and
+       other title surfaces UNSTYLED — full opacity, unpositioned — before
+       `.corner-label { opacity: 0 }` applies. That's the intermittent top-left
+       "Source" flash on the VIEW_2 embed iframe (it reloads fresh each time).
+       Hide every title surface from the first paint; the real reveal rules in
+       style.css have higher specificity, so this never blocks them. -->
+  <style>
+    .corner-label,
+    .canvas-text,
+    .explore-map-label,
+    #center-caption { opacity: 0; }
+  </style>
 </head>
 
 <body>
@@ -46,7 +60,13 @@
        cycle by stateManager. Deliberately NOT given the `.corner-label`
        class, so the per-canvas corner-label rules / `set-corner-labels`
        sweep can never touch it. -->
-  <span id="single-map-label" aria-hidden="true"></span>
+  <span id="explore-map-label" class="explore-map-label" aria-hidden="true"></span>
+  <!-- Map-words overlay: a few "most characteristic word per zone" labels
+       spread across the explore-single map (keywords on the Form map, subjects
+       on the Source map). Each label is anchored to a representative sprite's
+       on-screen position (updated per frame by mapWords.js). Driven by the
+       set-map-words directive. -->
+  <div id="map-words" aria-hidden="true"></div>
   <script type="module" src="/src/main.js"></script>
 </body>
 

@@ -1,9 +1,7 @@
 const SPREAD = 5;
 const CAMERA_FOV_DEG = 75;
 const OVERVIEW_Z = SPREAD / (2 * Math.tan((CAMERA_FOV_DEG * Math.PI) / 360));
-const ALL_MAP_TYPES = ['form', 'source', 'semantic', 'time'];
-// Display names for the single-explore map label — the lowercase mapType keys
-// capitalised to match interface_nuxt's corner labels (Source/Form/Semantic/Time).
+const ALL_MAP_TYPES = ['source', 'form', 'semantic', 'time'];
 const MAP_LABELS = { source: 'Source', form: 'Form', semantic: 'Semantic', time: 'Time' };
 const SINGLE_HOLD = 5.5;
 const SINGLE_MORPH = 1;
@@ -79,12 +77,7 @@ export function createStateManager({ containers, getApps, initial = 'single' }) 
   let singleActive = false;
   let singleTimer = 0;
   let singleCurrentMap = null;
-  // Whether the single-explore map label should track the cycling map. Set by
-  // the `set-map-label` directive (interface_nuxt enables it on entering the
-  // explore single view). Visibility also requires `singleActive`, so the
-  // boot single (VIEW_0/1) never shows it — only the explicitly-armed explore
-  // single does.
-  let mapLabelActive = false;
+  let mapLabelActive = false; // armed by set-map-label directive
 
   // Per-canvas cameraZ overrides. When `set-canvas-zoom` fires for one
   // canvas, that canvas's cameraZ is interpolated from the current state's
@@ -127,11 +120,36 @@ export function createStateManager({ containers, getApps, initial = 'single' }) 
     current.drift = { ...STATES[name].drift };
     currentName = name;
     driftTargets = null;
-    // Clear per-canvas cameraZ overrides — the new state controls all
-    // canvases uniformly from here. (Visually a no-op when transitioning
-    // overview → split with duration 0, since override target equals
-    // split's cameraZ.)
-    for (let i = 0; i < canvasOverrides.length; i++) canvasOverrides[i] = null;
+    // Per-canvas cameraZ overrides.
+    //
+    // For `overview` we KEEP per-canvas continuity instead of clearing.
+    // split and overview share identical rects — the only difference is
+    // cameraZ — so the overview finale is purely a zoom change. VIEW_4's
+    // hover-zoom has left the four canvases at DIFFERENT zoom levels at
+    // confirm time (typically one still zoomed in, the rest already pushed
+    // out to the overview cameraZ via per-canvas overrides). Clearing the
+    // overrides and lerping the single state-level cameraZ from split's 0.2
+    // would snap the already-zoomed-out canvases back IN before zooming them
+    // all out together — the jarring "zoom somewhere then zoom out" finale.
+    //
+    // Instead, retarget every canvas from its CURRENT actual z (mid-tween
+    // included) straight to the overview cameraZ. setCanvasOverride computes
+    // its `fromZ` from the live eased position of any in-flight override (or
+    // current.cameraZ when none), so each canvas continues smoothly from
+    // wherever it is: canvases already at overview barely move, and only the
+    // still-zoomed-in one(s) actually zoom out. The state-level cameraZ tween
+    // still runs underneath and lands on the same value, keeping the post-
+    // transition state consistent (overview is terminal/read-only anyway).
+    //
+    // Every other state controls all canvases uniformly, so clear overrides.
+    if (name === 'overview') {
+      const targetZ = STATES.overview.cameraZ;
+      for (let i = 0; i < canvasOverrides.length; i++) {
+        setCanvasOverride(i, targetZ, transition.duration);
+      }
+    } else {
+      for (let i = 0; i < canvasOverrides.length; i++) canvasOverrides[i] = null;
+    }
     const apps = getApps();
     const host = apps[0];
 
@@ -148,6 +166,18 @@ export function createStateManager({ containers, getApps, initial = 'single' }) 
     if (name === 'single') {
       singleActive = true;
       singleTimer = SINGLE_HOLD;
+      // Snap canvas-1 back to its canonical map if a previous single cycle left
+      // it displaying a different one. This fires when single is RE-entered while
+      // the canvas is already showing a cycled map — e.g. an interface_nuxt
+      // refresh re-emits set-state('single') while the standalone has been
+      // cycling and is mid-rotation. Without this, the tracker resets to
+      // host.mapType (source) but the points stay on the stale cycled map, so
+      // canvas-1 shows a non-source map on refresh. Instant (duration 0):
+      // cleanup, not a designed visual — mirrors the leave-single restore below.
+      // Skipped on first boot (singleCurrentMap === null → canvas already on source).
+      if (host?.isReady && host.object.morphTo && singleCurrentMap && singleCurrentMap !== host.mapType) {
+        host.object.morphTo(host.mapType, 0);
+      }
       singleCurrentMap = host?.mapType ?? 'form';
       updateMapLabel();
       apps.forEach(a => {
@@ -196,34 +226,28 @@ export function createStateManager({ containers, getApps, initial = 'single' }) 
       singleTimer = 0.5;
       return;
     }
-    const choices = ALL_MAP_TYPES.filter(m => m !== singleCurrentMap);
-    const next = choices[Math.floor(Math.random() * choices.length)];
+    const currentIndex = ALL_MAP_TYPES.indexOf(singleCurrentMap);
+    const next = ALL_MAP_TYPES[(currentIndex + 1) % ALL_MAP_TYPES.length];
     host.object.morphTo(next, SINGLE_MORPH);
     singleCurrentMap = next;
     updateMapLabel();
     singleTimer = SINGLE_HOLD + SINGLE_MORPH;
   }
 
-  // Single-explore map label. When armed (`mapLabelActive`) AND project is in
-  // single, mirror the currently-displayed cycling map name into
-  // `#single-map-label` (top-left) and fade it in; otherwise fade it out.
-  // Pure DOM text + class mutation — no render-loop / state-machine coupling.
+  // Explore-map-label — shows the current cycling map name top-left.
+  // The element (#explore-map-label) carries class="explore-map-label" from
+  // HTML so base styles always apply; this only toggles `.visible`.
   function updateMapLabel() {
-    const el = document.getElementById('single-map-label');
+    const el = document.getElementById('explore-map-label');
     if (!el) return;
     if (mapLabelActive && singleActive) {
       el.textContent = MAP_LABELS[singleCurrentMap] ?? '';
       el.classList.add('visible');
     } else {
-      // Hide by removing `.visible` only — the text stays so it fades OUT
-      // through the opacity transition instead of vanishing instantly.
       el.classList.remove('visible');
     }
   }
 
-  // `set-map-label` directive handler. Arms/disarms the explore map label;
-  // interface_nuxt enables it on entering the single explore view and clears
-  // it on Start over (fade) + on every (re)connect (hygiene).
   function setMapLabel(active) {
     mapLabelActive = active === true;
     updateMapLabel();
@@ -331,6 +355,17 @@ export function createStateManager({ containers, getApps, initial = 'single' }) 
     shouldPanCanvas,
     setMapLabel,
     get state() { return currentName; },
+    // The map currently shown by the single-view host canvas (cycles in single).
+    get singleMap() { return singleCurrentMap; },
+    // True when the single view is on a fully-settled map: in single, no
+    // state/layout transition, and outside the per-cycle point-morph window
+    // (the cycle sets singleTimer to SINGLE_HOLD + SINGLE_MORPH when it fires,
+    // so the map is morphing while singleTimer > SINGLE_HOLD, then settled
+    // through the hold). Drives the map-words overlay so labels only place +
+    // show once their sprites have stopped moving.
+    get singleSettled() {
+      return singleActive && !transition && singleTimer <= SINGLE_HOLD;
+    },
     list: () => Object.keys(STATES),
   };
 }
