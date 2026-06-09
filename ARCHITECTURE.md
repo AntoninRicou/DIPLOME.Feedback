@@ -47,7 +47,7 @@ Loads `/src/main.js` as a module and defines the four panel `<div>`s (`container
 **[vite.config.js](vite.config.js)**
 Vite config. Adds two dev-server middlewares that expose folders outside the project as URLs:
 - `/datas/*` → `./datas/` (the JSON projections)
-- `/atlas/*` → `../process/cache/` (the image atlas + metadata produced by an external Python pipeline)
+- `/atlas/*` → `../DIPLOME.ProcessData/cache/` (the image atlas + metadata produced by an external Python pipeline)
 
 **[src/main.js](src/main.js)**
 The boot script. Responsibilities:
@@ -153,7 +153,7 @@ You send `{"type":"set-state","payload":{"name":"single","duration":1.5}}` from 
 | URL | Served from | Contents |
 |---|---|---|
 | `/data/*.json` | `static/data/` (via Vite's `publicDir`) | The point coordinates per projection |
-| `/atlas/atlas.json` | `../process/cache/` (via `vite.config.js` middleware) | Per-image atlas metadata: `images[id] = { imgU, imgV, imgUSize, imgVSize, aspect }` |
+| `/atlas/atlas.json` | `../DIPLOME.ProcessData/cache/` (via `vite.config.js` middleware) | Per-image atlas metadata: `images[id] = { imgU, imgV, imgUSize, imgVSize, aspect }` |
 | `/atlas/atlas.jpg` | same | The packed thumbnail atlas texture |
 
 If `../process/cache/` is missing, `app.js` will fail on the atlas fetches.
