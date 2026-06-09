@@ -14,7 +14,11 @@ const STATES = {
       { x: 0, y: 0.5, w: 0.5, h: 0.5 },
       { x: 0.5, y: 0.5, w: 0.5, h: 0.5 },
     ],
-    cameraZ: 0.2,
+    // Split/zoomed-in camera distance. Slightly LESS zoomed than the original
+    // 0.2 (camera a touch further back). Must stay equal to SPLIT_CAMERA_Z in
+    // commands.js (the VIEW_3 reach-zoom + VIEW_4 hover-zoom target) so the
+    // VIEW_3 → VIEW_4 state flip is seamless (no jump when overrides clear).
+    cameraZ: 0.22,
     drift: { mode: 'none', amplitude: 0 },
   },
   single: {

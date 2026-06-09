@@ -38,6 +38,10 @@ export function createCommandsManager(actions) {
       actions.setMask(payload);
     },
 
+    'set-dim'(payload) {
+      actions.setDim(payload);
+    },
+
     'set-canvas-bg'(payload) {
       actions.setCanvasBg(payload);
     },

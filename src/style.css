@@ -45,16 +45,17 @@
      Style (weight, italic, letter-spacing) is independent — only size is
      locked. Edit here AND in interface_nuxt/app/app.vue's :root in lockstep. */
   --label-size: 1.15rem;
-  /* The per-quadrant interpretation text drawn on the canvas (.canvas-text-
-     title / -body) is sized independently of the label tier so it can read
-     larger on the big canvas without enlarging the corner labels. */
-  --canvas-text-size: 1.6rem;
+  /* Shared canvas-text tier: drives the per-quadrant text (.canvas-text-title /
+     -body), the corner labels (.corner-label), AND the explore-single top-left
+     map label (.explore-map-label) — they all read at this one size on the big
+     canvas. Bump here to enlarge them together. */
+  --canvas-text-size: 1.8rem;
 
-  /* Mirrors interface_nuxt's --rotate-panel-bg: the light blue-grey (90%
-     opacity) used for the organic "stroke" behind the rotating-intro
-     captions. Used by `#center-caption.rotate` so the VIEW_2/VIEW_3 mirrored
-     captions match the interface look. Keep in lockstep with app.vue. */
-  --rotate-panel-bg: rgba(170, 180, 194, 0.9);
+  /* Mirrors interface_nuxt's --rotate-panel-bg: warm beige "stroke" behind the
+     rotating-intro / centre captions (was blue-grey). Deepened from f9ecd0 (the
+     pale cream washed to near-white at glow size) to a more saturated tan.
+     Used by `#center-caption.rotate` + `.canvas-text`. Keep in lockstep with app.vue. */
+  --rotate-panel-bg: rgba(238, 217, 175, 0.92);
 
   /* Rotating-caption FADE timing, mirrored from interface_nuxt's :root so the
      project mirror fades in/out simultaneously with the interface caption.
@@ -156,6 +157,19 @@ body[data-canvas-bg="gradient"] .container {
   opacity: 0;
   pointer-events: none;
   z-index: 1000;
+}
+
+/* Luminosity dimmer — a plain black overlay above EVERYTHING (mask z:1000,
+   center-caption z:1001), so it darkens the whole render window including any
+   captions/veils. opacity is the only animated property; driven by `set-dim`
+   (level 0 = no dim, 1 = fully black). */
+#render-dim {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 2000;
 }
 
 body[data-canvas-bg="gradient"] #render-mask {
@@ -270,7 +284,8 @@ body[data-state="disperse"] #container-1::before {
   position: fixed;
   inset: 0;
   z-index: 5;
-  background: rgba(232, 224, 206, 0.32);
+  /* Near-neutral cool grey (no warm beige) — mirrors interface_nuxt's .interpret-veil. */
+  background: rgba(210, 213, 218, 0.3);
   backdrop-filter: blur(7px);
   -webkit-backdrop-filter: blur(7px);
   pointer-events: none;
@@ -419,10 +434,10 @@ body:not([data-state="single"]) .corner-label.visible {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  /* Lockstep with `.proximity-panel` width in interface_nuxt's app.vue —
-     widened from 30em when the body grew to --label-size (Otto Medium) so
-     it still wraps to ~2 lines. */
-  width: 38em;
+  /* Widened (was 38em) so the longer bodies wrap to ≤3 lines now that the
+     canvas text is bigger (--canvas-text-size 1.8rem). Paired with the
+     3-line clamp on .canvas-text-body below. */
+  width: 42em;
   padding: 0 1rem;
   text-align: center;
   color: #595b54;
@@ -468,9 +483,9 @@ body:not([data-state="single"]) .canvas-text.visible {
      larger on the canvas than the corner labels. */
   font-size: var(--canvas-text-size);
   font-weight: 500;
-  font-style: italic;
+  font-style: normal;
   letter-spacing: 0.015em;
-  line-height: 1.2;
+  line-height: 1.1;
 }
 .canvas-text-body {
   margin: 0;
@@ -479,9 +494,19 @@ body:not([data-state="single"]) .canvas-text.visible {
      app.vue — keep family/size/weight/line-height in lockstep. */
   font-family: 'ABC Otto', serif;
   font-size: var(--canvas-text-size);
-  font-weight: 500;
+  font-weight: 400;
   font-style: normal;
-  line-height: 1.15;
+  line-height: 1.0;
+  /* Honour the explicit \n break (before "through") in the body text; still
+     wraps normally after that. */
+  white-space: pre-line;
+  /* Hard cap the body at 3 lines (the width above is set so the real bodies
+     fit in 3 without truncating; this guarantees they never exceed it). */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
 }
 
 /* Centre caption — fullscreen overlay text dropped exactly at viewport
@@ -541,6 +566,9 @@ body:not([data-state="single"]) #center-caption.visible {
    emitted with `variant: 'rotate'`; modes-caption / image-credit stay plain. */
 #center-caption.rotate {
   font-size: 2.3rem;
+  /* Tighter line spacing for the project rotate captions (overrides the base
+     #center-caption 1.4) — a touch tighter than the interface's 1.2. */
+  line-height: 1.1;
   /* Match the interface caption's fade duration + easing (the base
      center-caption uses its own 600ms). The empty-beat enter delay is added
      only while entering (`.rotate.visible` below) — leaving uses 0 delay,

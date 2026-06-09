@@ -111,6 +111,20 @@ export function createCommands(apps, stateManager, pathPlayer, mapWords) {
     el.style.opacity = String(op);
   }
 
+  // Luminosity dimmer — animates the #render-dim black overlay's opacity.
+  // Same shape as setMask: `level` (0..1) is the darkness, `duration` (ms) the
+  // fade (0 = instant). Pure DOM/CSS overlay; no render-loop participation.
+  function setDim(payload) {
+    const el = document.getElementById('render-dim');
+    if (!el) return;
+    const level = Math.max(0, Math.min(1, Number(payload?.level)));
+    const dur = Math.max(0, Number(payload?.duration) || 0);
+    el.style.transition = dur === 0 ? 'none' : `opacity ${dur}ms linear`;
+    // Force reflow so the new transition value applies before the opacity change.
+    void el.offsetWidth;
+    el.style.opacity = String(level);
+  }
+
   function setCanvasBg(payload) {
     const mode = payload?.mode;
     if (mode !== 'black' && mode !== 'gradient') {
@@ -301,7 +315,10 @@ export function createCommands(apps, stateManager, pathPlayer, mapWords) {
   // four canvases from the overview look to a split-like look. After all
   // four are zoomed the standalone visually matches `split` and the next
   // VIEW transition can flip the state-name without any visible change.
-  const SPLIT_CAMERA_Z = 0.2;
+  // Per-canvas zoom-in target for VIEW_3 reach-zoom + VIEW_4 quadrant-hover
+  // zoom. Slightly less zoomed than the original 0.2. MUST equal STATES.split
+  // cameraZ in stateManager.js so VIEW_3 → VIEW_4 flips seamlessly.
+  const SPLIT_CAMERA_Z = 0.22;
   function setCanvasZoom(payload) {
     const i = payload?.canvasIndex;
     const id = payload?.imageId;
@@ -322,7 +339,9 @@ export function createCommands(apps, stateManager, pathPlayer, mapWords) {
     // large / too glowy once the canvas is at split's cameraZ. Per-canvas
     // preset keeps the zoomed canvas visually identical to a real split.
     if (app?.isReady && app.object.setHighlightPreset) {
-      app.object.setHighlightPreset('default');
+      // Ease the preset over the same window as the cameraZ tween so the
+      // focused sprite doesn't pop in size when the canvas starts re-zooming.
+      app.object.setHighlightPreset('default', ZOOM_DURATION_SEC);
     }
     // Direct call to the canvas's focusOn with `pan: true` so the camera
     // actually moves — bypasses the focus-in-overview pan suppression
@@ -356,12 +375,14 @@ export function createCommands(apps, stateManager, pathPlayer, mapWords) {
     const UNZOOM_DURATION_SEC = typeof payload?.durationSec === 'number' ? payload.durationSec : 0.6;
     stateManager.setCanvasOverride(i, OVERVIEW_CAMERA_Z, UNZOOM_DURATION_SEC, { suppressFocusPan: true });
     if (app?.isReady && app.object.setHighlightPreset) {
-      app.object.setHighlightPreset('big');
+      // Ease the preset over the same window as the cameraZ tween so the
+      // focused sprite doesn't pop in size when the canvas starts unzooming.
+      app.object.setHighlightPreset('big', UNZOOM_DURATION_SEC);
     }
     if (app?.isReady && app.object.setCameraTarget) {
       app.object.setCameraTarget({ x: 0, y: 0, panDuration: UNZOOM_DURATION_SEC });
     }
   }
 
-  return { focusOnId, pickRandomCommonId, setState, startPath, simulatePath, clearPaths, addPathSegment, truncatePath, setMask, setCanvasBg, setHighlight, setMarks, setGhostPath, setCanvasZoom, setCanvasOverview, setCornerLabels, setCornerLabel, setCanvasText, setCenterCaption, setCanvasVeil, setMapLabel, setMapWords, pathFadeOut };
+  return { focusOnId, pickRandomCommonId, setState, startPath, simulatePath, clearPaths, addPathSegment, truncatePath, setMask, setDim, setCanvasBg, setHighlight, setMarks, setGhostPath, setCanvasZoom, setCanvasOverview, setCornerLabels, setCornerLabel, setCanvasText, setCenterCaption, setCanvasVeil, setMapLabel, setMapWords, pathFadeOut };
 }

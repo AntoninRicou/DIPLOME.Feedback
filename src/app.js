@@ -309,9 +309,9 @@ function app({ container, id, mapType, state, appIsReady }) {
     // finished loading. Cache the latest name; setup() will apply it once
     // points exists, so the preset survives the boot race.
     let pendingHighlightPreset = null;
-    function setHighlightPreset(name) {
+    function setHighlightPreset(name, duration = 0) {
         pendingHighlightPreset = name;
-        if (points && points.setHighlightPreset) points.setHighlightPreset(name);
+        if (points && points.setHighlightPreset) points.setHighlightPreset(name, duration);
     }
 
     let pickingEnabled = false;

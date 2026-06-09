@@ -154,15 +154,54 @@ function createPointsManager({ scene, data, atlas, atlasTexture, spread = 5, thu
     // which `stateManager.goTo` calls on every transition.
     const HIGHLIGHT_PRESETS = {
         default: { scale: 1.4, glow: 1.8 },
-        big: { scale: 2.8, glow: 3.0 },
+        // `big` drives the far-camera hover highlight (single / overview /
+        // disperse) — including the VIEW_2 interface-hover → project sprite.
+        // Bumped a bit bigger so the hovered image reads more clearly.
+        big: { scale: 3.4, glow: 3.4 },
     };
     let activeHighlightScale = HIGHLIGHT_PRESETS.default.scale;
     let activeGlowFactor = HIGHLIGHT_PRESETS.default.glow;
+    // The preset scale/glow can be EASED to its new value (over `duration`)
+    // instead of snapped. The VIEW_4 hover zoom/unzoom passes its tween
+    // duration so the sprite preset switch stays in sync with the cameraZ
+    // tween — without this, the highlighted (centered) sprite popped in size
+    // the instant a canvas started zooming/unzooming. State transitions
+    // (`goTo`) still snap (duration 0), since they're masked/instant.
+    let presetScaleFrom = activeHighlightScale;
+    let presetScaleTo = activeHighlightScale;
+    let presetGlowFrom = activeGlowFactor;
+    let presetGlowTo = activeGlowFactor;
+    let presetT = 1;
+    let presetDuration = 0;
 
-    function setHighlightPreset(name) {
+    function setHighlightPreset(name, duration = 0) {
         const preset = HIGHLIGHT_PRESETS[name] || HIGHLIGHT_PRESETS.default;
-        activeHighlightScale = preset.scale;
-        activeGlowFactor = preset.glow;
+        if (duration > 0) {
+            // Ease from the CURRENT (possibly mid-ease) values to the target.
+            presetScaleFrom = activeHighlightScale;
+            presetGlowFrom = activeGlowFactor;
+            presetScaleTo = preset.scale;
+            presetGlowTo = preset.glow;
+            presetT = 0;
+            presetDuration = duration;
+        } else {
+            activeHighlightScale = preset.scale;
+            activeGlowFactor = preset.glow;
+            presetScaleTo = preset.scale;
+            presetGlowTo = preset.glow;
+            presetT = 1;
+            presetDuration = 0;
+        }
+    }
+
+    // Advance the eased preset transition (no-op once settled). Run every frame
+    // from tick() before the highlight write/glow so the eased scale is current.
+    function tickPreset(dt) {
+        if (presetT >= 1 || presetDuration <= 0) return;
+        presetT = Math.min(1, presetT + dt / presetDuration);
+        const e = easeInOutCubic(presetT);
+        activeHighlightScale = presetScaleFrom + (presetScaleTo - presetScaleFrom) * e;
+        activeGlowFactor = presetGlowFrom + (presetGlowTo - presetGlowFrom) * e;
     }
     // Time constant for the per-instance eased highlight transition. Higher
     // = faster (e.g. 8 reaches ~95% in ~375ms, 10 in ~300ms). Frame-rate
@@ -603,9 +642,12 @@ function createPointsManager({ scene, data, atlas, atlasTexture, spread = 5, thu
             mesh.instanceMatrix.needsUpdate = true;
             if (t >= 1) morphing = false;
         }
-        // Always: advance the eased per-instance highlight transitions and
-        // refresh the glow. Runs regardless of disperse/morph state so hover
-        // animations are responsive in `single`, `split`, `overview` too.
+        // Always: advance the eased preset transition + per-instance highlight
+        // transitions and refresh the glow. Runs regardless of disperse/morph
+        // state so hover animations are responsive in `single`, `split`,
+        // `overview` too. tickPreset first so the eased scale is current when
+        // the highlighted sprites are re-written this frame.
+        tickPreset(dt);
         tickHighlights(dt);
         updateActiveGlow();
     }
