@@ -16,19 +16,21 @@
 
 // Per-quadrant colours, indexed [tl, tr, bl, br].
 export const QUADRANT_COLORS = [
-    0x88ccff, // 0 — tl
-    0xff9a3c, // 1 — tr
-    0xff6ad5, // 2 — bl
-    0xb8ff5c, // 3 — br
+    0xf0a05c, // 0 — tl — Source   — pastel orange
+    0x6cb4e6, // 1 — tr — Form     — pastel sky blue
+    0x74cf92, // 2 — bl — Semantic — pastel green
+    0xef82ac, // 3 — br — Time     — pastel pink
 ];
 
 // Single override. Non-null = every new segment uses this one colour
 // regardless of quadrant ("one colour for every path"). null = per-quadrant.
-export const OVERRIDE_COLOR = 0x595b55;
+// null → the QUADRANT_COLORS palette above is now active.
+export const OVERRIDE_COLOR = null;
 
 // Fallback when a segment carries no quadrant (e.g. the explore-others foreign
-// path redraw) and no override is set.
-const DEFAULT_COLOR = 0x88ccff;
+// path redraw) and no override is set — kept a neutral grey so OTHER
+// participants' paths read muted vs. the user's own colour-coded path.
+const DEFAULT_COLOR = 0x595b55;
 
 // Resolve the colour for a segment given the clicked image's quadrant index.
 // Precedence: OVERRIDE_COLOR > the quadrant's colour > DEFAULT_COLOR.

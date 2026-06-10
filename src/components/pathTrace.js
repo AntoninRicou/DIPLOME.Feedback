@@ -125,7 +125,7 @@ export function createPathTrace({ scene, points }) {
     // pan is suppressed (VIEW_4 hover-unzoom). Roughly matches the LERP
     // pan settle time in split state so panning and non-panning canvases
     // finish drawing the segment around the same wall-clock moment.
-    const SEGMENT_DRAW_DURATION = 2.0; // doubled from 1.0 — slower path draw
+    const SEGMENT_DRAW_DURATION = 3.0; // raised (1.0 → 2.0 → 3.0) to match the slower LERP pan
 
     function addSegment(fromId, toId, color = DEFAULT_COLOR, useTimer = false) {
         if (!fromId || !toId) return;

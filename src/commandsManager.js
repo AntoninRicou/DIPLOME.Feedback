@@ -74,6 +74,10 @@ export function createCommandsManager(actions) {
       actions.setCornerLabel(payload);
     },
 
+    'set-corner-label-hover'(payload) {
+      actions.setCornerLabelHover(payload);
+    },
+
     'set-canvas-text'(payload) {
       actions.setCanvasText(payload);
     },

@@ -21,9 +21,10 @@ function app({ container, id, mapType, state, appIsReady }) {
     // (instead of LERP's slow exponential tail leaving the camera drifting
     // for seconds after the zoom completes).
     let positionTween = null;
-    // Halved from 0.015 to slow the camera pan — and the path segment draw
-    // that rides it (segment.progress = panProgress) — to roughly 2× longer.
-    const LERP = 0.0075;
+    // Lowered (0.015 → 0.0075 → 0.005) to slow the camera pan — and the path
+    // segment draw that rides it (segment.progress = panProgress) — so the line
+    // reaches the next image more gradually.
+    const LERP = 0.005;
     const { clientWidth: width, clientHeight: height } = container;
     const viewAspect = window.innerWidth / window.innerHeight;
 

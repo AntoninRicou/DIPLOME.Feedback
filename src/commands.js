@@ -177,6 +177,25 @@ export function createCommands(apps, stateManager, pathPlayer, mapWords) {
     el.classList.toggle('visible', visible);
   }
 
+  // Tint the hovered quadrant's corner-label HALO (the glyph stroke) with that
+  // quadrant's colour — mirrors the interface `.rel:hover .corner-label`. The
+  // word FILL stays #595b55; only the text-shadow is recoloured. `index` 0..3
+  // = that quadrant's colour (shared path palette via colorForQuadrant);
+  // null/-1 resets every label to its CSS default blue stroke. The
+  // `.corner-label` text-shadow transition fades the change. Pure DOM mutation.
+  function setCornerLabelHover(payload) {
+    const i = payload?.index;
+    document.querySelectorAll('.corner-label').forEach((el) => { el.style.textShadow = ''; });
+    if (typeof i !== 'number' || i < 0 || i > 3) return;
+    const el = document.querySelector(`#container-${i + 1} .corner-label`);
+    if (!el) return;
+    const c = colorForQuadrant(i) >>> 0;
+    const hex = '#' + c.toString(16).padStart(6, '0');
+    el.style.textShadow = [4, 6, 6, 9, 9, 12, 12, 15, 18]
+      .map((r) => `0 0 ${r}px ${hex}`)
+      .join(', ');
+  }
+
   // Fullscreen-centred caption — drops a single string into
   // `#center-caption` and toggles visibility. Empty string (or missing
   // field) clears + hides. Project is content-blind; interface_nuxt
@@ -384,5 +403,5 @@ export function createCommands(apps, stateManager, pathPlayer, mapWords) {
     }
   }
 
-  return { focusOnId, pickRandomCommonId, setState, startPath, simulatePath, clearPaths, addPathSegment, truncatePath, setMask, setDim, setCanvasBg, setHighlight, setMarks, setGhostPath, setCanvasZoom, setCanvasOverview, setCornerLabels, setCornerLabel, setCanvasText, setCenterCaption, setCanvasVeil, setMapLabel, setMapWords, pathFadeOut };
+  return { focusOnId, pickRandomCommonId, setState, startPath, simulatePath, clearPaths, addPathSegment, truncatePath, setMask, setDim, setCanvasBg, setHighlight, setMarks, setGhostPath, setCanvasZoom, setCanvasOverview, setCornerLabels, setCornerLabel, setCornerLabelHover, setCanvasText, setCenterCaption, setCanvasVeil, setMapLabel, setMapWords, pathFadeOut };
 }

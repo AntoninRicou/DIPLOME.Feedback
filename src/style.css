@@ -4,24 +4,27 @@
   font-weight: 400;
   font-display: swap;
   src: url('/fonts/ABC%20Otto/ABCOtto-Regular-Trial.woff2') format('woff2'),
-       url('/fonts/ABC%20Otto/ABCOtto-Regular-Trial.woff') format('woff');
+    url('/fonts/ABC%20Otto/ABCOtto-Regular-Trial.woff') format('woff');
 }
+
 @font-face {
   font-family: 'ABC Otto';
   font-style: italic;
   font-weight: 500;
   font-display: swap;
   src: url('/fonts/ABC%20Otto/ABCOtto-MediumItalic-Trial.woff2') format('woff2'),
-       url('/fonts/ABC%20Otto/ABCOtto-MediumItalic-Trial.woff') format('woff');
+    url('/fonts/ABC%20Otto/ABCOtto-MediumItalic-Trial.woff') format('woff');
 }
+
 @font-face {
   font-family: 'ABC Otto';
   font-style: normal;
   font-weight: 500;
   font-display: swap;
   src: url('/fonts/ABC%20Otto/ABCOtto-Medium-Trial.woff2') format('woff2'),
-       url('/fonts/ABC%20Otto/ABCOtto-Medium-Trial.woff') format('woff');
+    url('/fonts/ABC%20Otto/ABCOtto-Medium-Trial.woff') format('woff');
 }
+
 @font-face {
   font-family: 'Neue Kabel';
   font-style: normal;
@@ -29,6 +32,7 @@
   font-display: swap;
   src: url('/fonts/Neue%20Kabel/NeueKabel-Medium.otf') format('opentype');
 }
+
 @font-face {
   font-family: 'Neue Kabel';
   font-style: italic;
@@ -51,11 +55,18 @@
      canvas. Bump here to enlarge them together. */
   --canvas-text-size: 1.8rem;
 
-  /* Mirrors interface_nuxt's --rotate-panel-bg: warm beige "stroke" behind the
-     rotating-intro / centre captions (was blue-grey). Deepened from f9ecd0 (the
-     pale cream washed to near-white at glow size) to a more saturated tan.
-     Used by `#center-caption.rotate` + `.canvas-text`. Keep in lockstep with app.vue. */
-  --rotate-panel-bg: rgba(238, 217, 175, 0.92);
+  /* The shared glyph "background effect" (layered text-shadow stroke) for EVERY
+     project text type — corner labels, canvas-text, map-words, centre captions.
+     Greyish with a small blue lean (was blue, before that beige). Mirrors
+     interface_nuxt's app.vue --rotate-panel-bg. */
+  --rotate-panel-bg: rgba(175, 180, 188, 0.96);
+
+  /* Project text glyph fill + stroke. Fill = #595b55 (dark) on every text type;
+     stroke = the blue --rotate-panel-bg above. (The VIEW_4 corner-label hover
+     colour is set per-quadrant via inline style from set-corner-label-hover and
+     overrides this fill on hover — kept.) */
+  --rotate-fill: #595b55;                  /* dark fill */
+  --rotate-stroke: var(--rotate-panel-bg); /* blue stroke */
 
   /* Rotating-caption FADE timing, mirrored from interface_nuxt's :root so the
      project mirror fades in/out simultaneously with the interface caption.
@@ -75,9 +86,9 @@
      text-shadow which overrides the inherited value. Edit here AND in
      interface_nuxt/app/app.vue's :root in lockstep. */
   --halo:
-    0 0 2px  rgba(150, 170, 200, 1),
-    0 0 5px  rgba(150, 170, 200, 1),
-    0 0 9px  rgba(150, 170, 200, 1),
+    0 0 2px rgba(150, 170, 200, 1),
+    0 0 5px rgba(150, 170, 200, 1),
+    0 0 9px rgba(150, 170, 200, 1),
     0 0 18px rgba(180, 210, 250, 0.55);
 }
 
@@ -234,6 +245,7 @@ body[data-state="split"]::before,
 body[data-state="overview"]::before {
   opacity: 1;
 }
+
 /* In interpretation/veil mode the cross stays visible but goes soft —
    blurred to match the veiled field behind it, never removed. Mirrors the
    interface's `.view-3.interpreting::before`. */
@@ -254,6 +266,7 @@ body[data-veil="on"]::before {
 body[data-state="disperse"] #container-1 {
   isolation: isolate;
 }
+
 body[data-state="disperse"] #container-1::before {
   content: "";
   position: absolute;
@@ -292,6 +305,7 @@ body[data-state="disperse"] #container-1::before {
   opacity: 0;
   transition: opacity 240ms ease-out;
 }
+
 #render-veil.visible {
   opacity: 1;
 }
@@ -315,22 +329,48 @@ body[data-state="disperse"] #container-1::before {
      tier — on the project the corner labels read at the larger canvas size. */
   font-size: var(--canvas-text-size);
   letter-spacing: 0.015em;
-  color: #595b54;
+  color: #595b55;
   padding: 0.75rem 0.95rem;
   pointer-events: none;
   z-index: 6;
   opacity: 0;
-  transition: opacity 600ms ease-out;
+  /* The glyph stroke (text-shadow) transitions so the VIEW_4 per-quadrant hover
+     colour fades — set-corner-label-hover tints the HALO, not the fill. */
+  transition: opacity 600ms ease-out, text-shadow 220ms ease-out;
+  /* Blue glyph stroke — same effect as every other project text type
+     (--rotate-panel-bg), replacing the old warm cream halo. */
   text-shadow:
-    0 0 8px rgba(255, 252, 230, 1),
-    0 0 20px rgba(255, 248, 220, 0.9),
-    0 0 42px rgba(255, 244, 210, 0.6),
-    0 0 75px rgba(255, 240, 200, 0.3);
+    0 0 4px var(--rotate-panel-bg),
+    0 0 6px var(--rotate-panel-bg),
+    0 0 6px var(--rotate-panel-bg),
+    0 0 9px var(--rotate-panel-bg),
+    0 0 9px var(--rotate-panel-bg),
+    0 0 12px var(--rotate-panel-bg),
+    0 0 12px var(--rotate-panel-bg),
+    0 0 15px var(--rotate-panel-bg),
+    0 0 18px var(--rotate-panel-bg);
 }
-.corner-label[data-position="tl"] { top: 0; left: 0; }
-.corner-label[data-position="tr"] { top: 0; right: 0; }
-.corner-label[data-position="bl"] { bottom: 0; left: 0; }
-.corner-label[data-position="br"] { bottom: 0; right: 0; }
+
+.corner-label[data-position="tl"] {
+  top: 0;
+  left: 0;
+}
+
+.corner-label[data-position="tr"] {
+  top: 0;
+  right: 0;
+}
+
+.corner-label[data-position="bl"] {
+  bottom: 0;
+  left: 0;
+}
+
+.corner-label[data-position="br"] {
+  bottom: 0;
+  right: 0;
+}
+
 /* Visibility gated by an explicit wire directive (`set-corner-labels`)
    instead of `body[data-state]`. interface_nuxt holds the labels back
    until the VIEW_3 caption timer fires so both screens reveal them in
@@ -372,19 +412,31 @@ body:not([data-state="single"]) .corner-label.visible {
   font-style: italic;
   font-size: var(--canvas-text-size);
   letter-spacing: 0.015em;
-  color: #595b54;
+  color: #595b55;
   padding: 0.75rem 0.95rem;
   pointer-events: none;
   z-index: 6;
   opacity: 0;
-  transition: opacity 600ms ease-out;
+  /* The glyph stroke (text-shadow) transitions so the VIEW_4 per-quadrant hover
+     colour fades — set-corner-label-hover tints the HALO, not the fill. */
+  transition: opacity 600ms ease-out, text-shadow 220ms ease-out;
+  /* Blue glyph stroke — same effect as every other project text type
+     (--rotate-panel-bg), replacing the old warm cream halo. */
   text-shadow:
-    0 0 8px rgba(255, 252, 230, 1),
-    0 0 20px rgba(255, 248, 220, 0.9),
-    0 0 42px rgba(255, 244, 210, 0.6),
-    0 0 75px rgba(255, 240, 200, 0.3);
+    0 0 4px var(--rotate-panel-bg),
+    0 0 6px var(--rotate-panel-bg),
+    0 0 6px var(--rotate-panel-bg),
+    0 0 9px var(--rotate-panel-bg),
+    0 0 9px var(--rotate-panel-bg),
+    0 0 12px var(--rotate-panel-bg),
+    0 0 12px var(--rotate-panel-bg),
+    0 0 15px var(--rotate-panel-bg),
+    0 0 18px var(--rotate-panel-bg);
 }
-.explore-map-label.visible { opacity: 1; }
+
+.explore-map-label.visible {
+  opacity: 1;
+}
 
 /* Map-words overlay — the per-zone "most characteristic word" labels spread
    across the explore-single Form / Source map. The container fades as a whole
@@ -400,7 +452,11 @@ body:not([data-state="single"]) .corner-label.visible {
   opacity: 0;
   transition: opacity 600ms ease-out;
 }
-#map-words.visible { opacity: 1; }
+
+#map-words.visible {
+  opacity: 1;
+}
+
 .map-word {
   position: absolute;
   top: 0;
@@ -465,6 +521,13 @@ body:not([data-state="single"]) .corner-label.visible {
     0 0 15px var(--rotate-panel-bg),
     0 0 18px var(--rotate-panel-bg);
 }
+/* Semantic (canvas index 2 = bl) body is the longest — give it a wider box so
+   it settles onto two lines instead of three. Feedback-only; mirrors the
+   interface's Semantic widening (.proximity-panel[data-component="component_3"]). */
+.canvas-text[data-canvas="2"] {
+  width: 46em;
+}
+
 /* Same `:not([data-state="single"])` guard as `.corner-label` — no
    component title may render in `single`, even if the .visible class
    is stale from a previous traversal (e.g. interface reload during
@@ -474,6 +537,7 @@ body:not([data-state="single"]) .corner-label.visible {
 body:not([data-state="single"]) .canvas-text.visible {
   opacity: 1;
 }
+
 .canvas-text-title {
   margin: 0 0 0.4rem;
   /* Mirrors `.corner-label` typography (weight 500, italic, same size +
@@ -487,6 +551,7 @@ body:not([data-state="single"]) .canvas-text.visible {
   letter-spacing: 0.015em;
   line-height: 1.1;
 }
+
 .canvas-text-body {
   margin: 0;
   /* ABC Otto Medium (upright), sized to match the tier-2 title
@@ -539,11 +604,13 @@ body:not([data-state="single"]) .canvas-text.visible {
   opacity: 0;
   transition: opacity 600ms ease-out;
 }
+
 /* Same `:not([data-state="single"])` guard as `.corner-label` and
    `.canvas-text` — no component-title overlay shows in `single`. */
 body:not([data-state="single"]) #center-caption.visible {
   opacity: 1;
 }
+
 /* Explore-others opt-out: the VIEW_4 single-path view legitimately shows a
    centred caption ("See how you move across proximity maps and other
    participants journeys.") while project is in `single`. The `single-ok` class (set when interface emits
@@ -552,12 +619,14 @@ body:not([data-state="single"]) #center-caption.visible {
 #center-caption.visible.single-ok {
   opacity: 1;
 }
+
 /* The explore-others project caption is meant to read on ONE line (it's the
    only single-ok caption). Override the default pre-wrap/max-width wrapping. */
 #center-caption.single-ok {
   white-space: nowrap;
   max-width: none;
 }
+
 /* Rotating-intro mirror (VIEW_2 / VIEW_3) — matches interface_nuxt's rotating
    caption look: larger (--label-size, vs the base 0.95rem modes-caption size)
    and backed by the same organic blue-grey "stroke" (layered text-shadow in
@@ -565,7 +634,13 @@ body:not([data-state="single"]) #center-caption.visible {
    `.caption-text` in the interface views. Only applies when the caption was
    emitted with `variant: 'rotate'`; modes-caption / image-credit stay plain. */
 #center-caption.rotate {
-  font-size: 2.3rem;
+  /* Sized so the longest manually-broken half-sentence fits ONE line at this
+     near-full-width box (at 2.3rem the half ran ~1400px — wider than the
+     screen — so it spilled to a 3rd line; no box width could fix that). */
+  font-size: 2rem;
+  /* Near-full-width box so each half stays on one line; the `\n` breaks then
+     give exactly two lines. */
+  max-width: 100vw;
   /* Tighter line spacing for the project rotate captions (overrides the base
      #center-caption 1.4) — a touch tighter than the interface's 1.2. */
   line-height: 1.1;
@@ -575,17 +650,21 @@ body:not([data-state="single"]) #center-caption.visible {
      mirroring the interface's leave-active (no delay) vs enter-active (delay)
      split. */
   transition: opacity var(--rotate-fade-ms) var(--rotate-fade-easing);
+  /* Reversed rotate text: beige fill + dark stroke (overrides the base
+     #center-caption #595b54 fill). See :root --rotate-fill / --rotate-stroke. */
+  color: var(--rotate-fill);
   text-shadow:
-    0 0 4px var(--rotate-panel-bg),
-    0 0 6px var(--rotate-panel-bg),
-    0 0 6px var(--rotate-panel-bg),
-    0 0 9px var(--rotate-panel-bg),
-    0 0 9px var(--rotate-panel-bg),
-    0 0 12px var(--rotate-panel-bg),
-    0 0 12px var(--rotate-panel-bg),
-    0 0 15px var(--rotate-panel-bg),
-    0 0 18px var(--rotate-panel-bg);
+    0 0 4px var(--rotate-stroke),
+    0 0 6px var(--rotate-stroke),
+    0 0 6px var(--rotate-stroke),
+    0 0 9px var(--rotate-stroke),
+    0 0 9px var(--rotate-stroke),
+    0 0 12px var(--rotate-stroke),
+    0 0 12px var(--rotate-stroke),
+    0 0 15px var(--rotate-stroke),
+    0 0 18px var(--rotate-stroke);
 }
+
 /* Enter-only delay: the post-change state when fading IN is `.rotate.visible`
    (so this delay applies); when fading OUT, `.visible` is removed so the
    `.rotate` rule above (0 delay) governs — exactly mirroring the interface's

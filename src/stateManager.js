@@ -1,6 +1,13 @@
 const SPREAD = 5;
 const CAMERA_FOV_DEG = 75;
-const OVERVIEW_Z = SPREAD / (2 * Math.tan((CAMERA_FOV_DEG * Math.PI) / 360));
+// Distance at which the SPREAD field exactly fills the camera frustum
+// edge-to-edge (no margin).
+const OVERVIEW_FIT_Z = SPREAD / (2 * Math.tan((CAMERA_FOV_DEG * Math.PI) / 360));
+// Overview/grid camera distance: pulled back ~8% from the exact fit so each
+// map has a bit of breathing-room margin instead of sticking to its canvas
+// edges — matching the `single` view's feel (single sits at cameraZ 3.5, also
+// a touch back from the ~3.26 fit distance). Tune the 1.08 for more/less margin.
+const OVERVIEW_Z = OVERVIEW_FIT_Z * 1.08;
 const ALL_MAP_TYPES = ['source', 'form', 'semantic', 'time'];
 const MAP_LABELS = { source: 'Source', form: 'Form', semantic: 'Semantic', time: 'Time' };
 const SINGLE_HOLD = 5.5;
@@ -199,9 +206,16 @@ export function createStateManager({ containers, getApps, initial = 'single' }) 
       // runs behind the render mask. A timed (SINGLE_MORPH = 1 s) morph here
       // leaked past the VIEW_1 → VIEW_2 hidden-morph reveal — the points were
       // still flying to their canonical positions when the mask lifted, which
-      // read as an intermittent "jump" (intermittent because it only fired
-      // when the cycle had drifted canvas-1 off its original map at advance).
-      if (host?.isReady && host.object.morphTo && singleCurrentMap && singleCurrentMap !== host.mapType) {
+      // read as an intermittent "jump".
+      //
+      // UNCONDITIONAL (no `singleCurrentMap !== host.mapType` guard): a guarded
+      // snap skipped the case where the cycle was mid-morph BACK TO the
+      // canonical map (singleCurrentMap already === host.mapType) — the points
+      // were still drifting toward it when the mask lifted. morphTo(_, 0) snaps
+      // within a frame and cancels any in-flight cycle morph, so the map is
+      // dead-steady the instant the grid is revealed. A no-op when already
+      // settled on the canonical map.
+      if (host?.isReady && host.object.morphTo) {
         host.object.morphTo(host.mapType, 0);
         singleCurrentMap = host.mapType;
       }
