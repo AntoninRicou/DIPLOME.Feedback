@@ -314,6 +314,16 @@ export function createCommands(apps, stateManager, pathPlayer, mapWords) {
     });
   }
 
+  // Mark-dim — dim every NON-marked sprite (explore-single view) so the marked
+  // circle/path images stand out; `active=false` restores full opacity (Start
+  // over). Pure perception — no camera move, no state change, no path mutation.
+  function setMarkDim(payload) {
+    const active = !!payload?.active;
+    apps.forEach(a => {
+      if (a.isReady && a.object.setMarkDim) a.object.setMarkDim(active);
+    });
+  }
+
   // Ghost path — transient dashed line on every canvas from `fromId` to
   // `toId`, showing the proximity link between the active central image
   // and whichever related image is currently hovered. Mirrors the shape
@@ -403,5 +413,5 @@ export function createCommands(apps, stateManager, pathPlayer, mapWords) {
     }
   }
 
-  return { focusOnId, pickRandomCommonId, setState, startPath, simulatePath, clearPaths, addPathSegment, truncatePath, setMask, setDim, setCanvasBg, setHighlight, setMarks, setGhostPath, setCanvasZoom, setCanvasOverview, setCornerLabels, setCornerLabel, setCornerLabelHover, setCanvasText, setCenterCaption, setCanvasVeil, setMapLabel, setMapWords, pathFadeOut };
+  return { focusOnId, pickRandomCommonId, setState, startPath, simulatePath, clearPaths, addPathSegment, truncatePath, setMask, setDim, setCanvasBg, setHighlight, setMarks, setMarkDim, setGhostPath, setCanvasZoom, setCanvasOverview, setCornerLabels, setCornerLabel, setCornerLabelHover, setCanvasText, setCenterCaption, setCanvasVeil, setMapLabel, setMapWords, pathFadeOut };
 }

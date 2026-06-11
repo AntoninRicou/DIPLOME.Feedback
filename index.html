@@ -70,6 +70,11 @@
        on-screen position (updated per frame by mapWords.js). Driven by the
        set-map-words directive. -->
   <div id="map-words" aria-hidden="true"></div>
+  <!-- Cursor hint (standalone feedback window only): follows the cursor and
+       tells the operator to move it back to the interface screen. Shown
+       whenever the mouse is over this (fullscreen) feedback display; wired in
+       main.js, guarded to the non-embed path. -->
+  <div id="cursor-hint" aria-hidden="true">Bring the cursor top right</div>
   <script type="module" src="/src/main.js"></script>
 </body>
 

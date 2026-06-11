@@ -672,3 +672,33 @@ body:not([data-state="single"]) #center-caption.visible {
 #center-caption.rotate.visible {
   transition-delay: var(--rotate-empty-beat);
 }
+
+/* Cursor hint — standalone feedback window only (wired in main.js, non-embed
+   path). A small label pinned to the cursor: appears whenever the mouse is over
+   this fullscreen feedback display, telling the operator to move it back to the
+   interface screen. Position is set inline (left/top) on every mousemove. */
+#cursor-hint {
+  position: fixed;
+  left: 0;
+  top: 0;
+  /* Offset so the label sits just below-right of the cursor tip. */
+  transform: translate(16px, 16px);
+  padding: 0.4rem 0.7rem;
+  font-size: var(--label-size);
+  font-style: italic;
+  letter-spacing: 0.015em;
+  white-space: nowrap;
+  color: #595b54;
+  background: rgba(232, 224, 206, 0.85);
+  border-radius: 4px;
+  text-shadow:
+    0 0 4px var(--rotate-panel-bg),
+    0 0 8px var(--rotate-panel-bg);
+  pointer-events: none;
+  z-index: 100000; /* above render-dim / center-caption — always visible */
+  opacity: 0;
+  transition: opacity 150ms ease-out;
+}
+#cursor-hint.visible {
+  opacity: 1;
+}

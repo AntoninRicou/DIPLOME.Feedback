@@ -306,6 +306,12 @@ function app({ container, id, mapType, state, appIsReady }) {
         if (points && points.setMarks) points.setMarks(ids);
     }
 
+    // Mark-dim: dim non-marked sprites (explore-single view) so the marked
+    // circle/path images stand out. Cleared on Start over. Purely perceptual.
+    function setMarkDim(active) {
+        if (points && points.setMarkDim) points.setMarkDim(active);
+    }
+
     // Preset can be set by stateManager.goTo before this app's points have
     // finished loading. Cache the latest name; setup() will apply it once
     // points exists, so the preset survives the boot race.
@@ -393,7 +399,7 @@ function app({ container, id, mapType, state, appIsReady }) {
     setup();
 
     function fadeOutPath() { if (pathTrace) pathTrace.fadeOut(0.6); }
-    return { animate, focusOn, getScreenPosition, setCameraTarget, getIds, addPathSegment, truncatePath, clearPath, fadeOutPath, setGhostPath, resetFocus, resize, setCameraZ, setDriftTarget, morphTo, enterDisperse, exitDisperse, enablePicking, highlight, setMarks, setHighlightPreset, getPanProgress }
+    return { animate, focusOn, getScreenPosition, setCameraTarget, getIds, addPathSegment, truncatePath, clearPath, fadeOutPath, setGhostPath, resetFocus, resize, setCameraZ, setDriftTarget, morphTo, enterDisperse, exitDisperse, enablePicking, highlight, setMarks, setMarkDim, setHighlightPreset, getPanProgress }
 }
 
 export default app;

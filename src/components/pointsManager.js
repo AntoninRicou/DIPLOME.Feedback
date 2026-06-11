@@ -2,12 +2,15 @@ import * as THREE from 'three';
 
 const VERTEX_SHADER = /* glsl */ `
     attribute vec4 aUvRect;
+    attribute float aOpacity;
     varying vec2 vUv;
+    varying float vOpacity;
     void main() {
         vUv = vec2(
             aUvRect.x + uv.x * aUvRect.z,
             aUvRect.y + (1.0 - uv.y) * aUvRect.w
         );
+        vOpacity = aOpacity;
         gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(position, 1.0);
     }
 `;
@@ -16,8 +19,10 @@ const FRAGMENT_SHADER = /* glsl */ `
     precision highp float;
     uniform sampler2D uAtlas;
     varying vec2 vUv;
+    varying float vOpacity;
     void main() {
-        gl_FragColor = texture2D(uAtlas, vUv);
+        vec4 c = texture2D(uAtlas, vUv);
+        gl_FragColor = vec4(c.rgb, c.a * vOpacity);
     }
 `;
 
@@ -50,7 +55,16 @@ function createPointsManager({ scene, data, atlas, atlasTexture, spread = 5, thu
         uniforms: { uAtlas: { value: atlasTexture } },
         vertexShader: VERTEX_SHADER,
         fragmentShader: FRAGMENT_SHADER,
+        // transparent so the per-instance `aOpacity` (used to dim non-marked
+        // sprites to 80% in the explore-single view) actually blends. depthWrite
+        // stays default (true) so coplanar sprite occlusion ordering is unchanged
+        // for fully-opaque (aOpacity = 1) sprites.
+        transparent: true,
     });
+
+    // Per-instance opacity (default 1). Driven by setMarkDim() to dim the
+    // non-marked sprites in the explore-single view — see setMarkDim/applyMarkDim.
+    const opacities = new Float32Array(count).fill(1);
 
     const mesh = new THREE.InstancedMesh(geometry, material, count);
     //mesh.visible = false;
@@ -94,6 +108,7 @@ function createPointsManager({ scene, data, atlas, atlasTexture, spread = 5, thu
     }
 
     geometry.setAttribute('aUvRect', new THREE.InstancedBufferAttribute(uvRect, 4));
+    geometry.setAttribute('aOpacity', new THREE.InstancedBufferAttribute(opacities, 1));
     mesh.instanceMatrix.needsUpdate = true;
 
     if (missing) console.warn(`pointsManager: ${missing} points have no atlas entry`);
@@ -327,9 +342,30 @@ function createPointsManager({ scene, data, atlas, atlasTexture, spread = 5, thu
             }
         }
         applyLit(-1, hoverIndex);
+        // Re-apply the mark-dim so the newly-marked sprites read at full opacity
+        // and the rest stay dimmed (e.g. when centring a different explorer
+        // circle, which calls setMarks again with a new id set).
+        if (markDimActive) applyMarkDim();
         // Drop the lingering focus anchor so the focus glow doesn't keep
         // painting the previously-focused image brighter than its peers.
         lastFocusIndex = -1;
+    }
+
+    // Mark-dim: in the explore-single view, dim every NON-marked sprite to
+    // MARK_DIM_OPACITY so the marked (circle/path) images stand out. Active is
+    // toggled by setMarkDim; recomputed whenever the mark set changes (setMarks).
+    // Cleared (all back to 1) on Start over via setMarkDim(false).
+    let markDimActive = false;
+    const MARK_DIM_OPACITY = 0.6;
+    function applyMarkDim() {
+        for (let i = 0; i < count; i++) {
+            opacities[i] = markDimActive && !markSet.has(i) ? MARK_DIM_OPACITY : 1;
+        }
+        geometry.attributes.aOpacity.needsUpdate = true;
+    }
+    function setMarkDim(active) {
+        markDimActive = !!active;
+        applyMarkDim();
     }
 
     function updateGlow(glowMesh, anchorIndex) {
@@ -652,7 +688,7 @@ function createPointsManager({ scene, data, atlas, atlasTexture, spread = 5, thu
         updateActiveGlow();
     }
 
-    return { mesh, geometry, material, ids, positions, highlight, setFocus, setHover, setMarks, setHighlightPreset, getPosition, morphTo, tick, enterDisperse, exitDisperse };
+    return { mesh, geometry, material, ids, positions, highlight, setFocus, setHover, setMarks, setMarkDim, setHighlightPreset, getPosition, morphTo, tick, enterDisperse, exitDisperse };
 }
 
 export { createPointsManager };

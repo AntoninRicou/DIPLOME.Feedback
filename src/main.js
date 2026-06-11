@@ -23,6 +23,25 @@ function main() {
     // NOTHING on hover until the parent posts `view0:enable-hover` (when the
     // "Explore…" prompt appears). The cursor stays VISIBLE throughout — it used
     // to be hidden until armed, but VIEW_2 now shows the mouse the whole time.
+  } else {
+    // Standalone window only. This instance runs fullscreen on the external
+    // feedback screen, so any cursor over it means the operator has strayed off
+    // the interface screen. Show a label pinned to the cursor telling them to
+    // bring it back; hide it the moment the cursor leaves the window. Pure DOM
+    // overlay — no relay, no state, no render-loop involvement.
+    const hint = document.getElementById('cursor-hint');
+    if (hint) {
+      window.addEventListener('pointermove', (e) => {
+        hint.style.left = `${e.clientX}px`;
+        hint.style.top = `${e.clientY}px`;
+        hint.classList.add('visible');
+      });
+      // Hide when the pointer leaves the page (back onto the interface screen).
+      document.documentElement.addEventListener('mouseleave', () => {
+        hint.classList.remove('visible');
+      });
+      window.addEventListener('blur', () => hint.classList.remove('visible'));
+    }
   }
   const apps = [];
   const containers = [1, 2, 3, 4].map(n => document.getElementById(`container-${n}`));

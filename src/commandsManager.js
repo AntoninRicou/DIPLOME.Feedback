@@ -54,6 +54,10 @@ export function createCommandsManager(actions) {
       actions.setMarks(payload);
     },
 
+    'set-mark-dim'(payload) {
+      actions.setMarkDim(payload);
+    },
+
     'set-ghost-path'(payload) {
       actions.setGhostPath(payload);
     },
