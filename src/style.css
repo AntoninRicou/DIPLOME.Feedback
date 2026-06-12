@@ -102,6 +102,10 @@ html {
 
 html {
   font-family: 'ABC Otto', serif;
+  /* Never show the text (I-beam) cursor over text. `cursor` is inherited, so
+     every element gets the arrow by default; anything that sets its own
+     `pointer` still overrides it. */
+  cursor: default;
 }
 
 body {
@@ -325,6 +329,8 @@ body[data-state="disperse"] #container-1::before {
   position: absolute;
   font-weight: 500;
   font-style: italic;
+  /* Per-quadrant glyph glow colour (set on the [data-position] rules below). */
+  --corner-glow: var(--rotate-panel-bg);
   /* Same size as the canvas quadrant text (.canvas-text), not the --label-size
      tier — on the project the corner labels read at the larger canvas size. */
   font-size: var(--canvas-text-size);
@@ -337,18 +343,19 @@ body[data-state="disperse"] #container-1::before {
   /* The glyph stroke (text-shadow) transitions so the VIEW_4 per-quadrant hover
      colour fades — set-corner-label-hover tints the HALO, not the fill. */
   transition: opacity 600ms ease-out, text-shadow 220ms ease-out;
-  /* Blue glyph stroke — same effect as every other project text type
-     (--rotate-panel-bg), replacing the old warm cream halo. */
+  /* Layered glyph glow — `--corner-glow` (coloured per quadrant on .corner-label
+     via the [data-position] rules), else the neutral blue-grey stroke. The
+     map-label has no --corner-glow set, so it falls back to blue-grey. */
   text-shadow:
-    0 0 4px var(--rotate-panel-bg),
-    0 0 6px var(--rotate-panel-bg),
-    0 0 6px var(--rotate-panel-bg),
-    0 0 9px var(--rotate-panel-bg),
-    0 0 9px var(--rotate-panel-bg),
-    0 0 12px var(--rotate-panel-bg),
-    0 0 12px var(--rotate-panel-bg),
-    0 0 15px var(--rotate-panel-bg),
-    0 0 18px var(--rotate-panel-bg);
+    0 0 4px var(--corner-glow, var(--rotate-panel-bg)),
+    0 0 6px var(--corner-glow, var(--rotate-panel-bg)),
+    0 0 6px var(--corner-glow, var(--rotate-panel-bg)),
+    0 0 9px var(--corner-glow, var(--rotate-panel-bg)),
+    0 0 9px var(--corner-glow, var(--rotate-panel-bg)),
+    0 0 12px var(--corner-glow, var(--rotate-panel-bg)),
+    0 0 12px var(--corner-glow, var(--rotate-panel-bg)),
+    0 0 15px var(--corner-glow, var(--rotate-panel-bg)),
+    0 0 18px var(--corner-glow, var(--rotate-panel-bg));
 }
 
 .corner-label[data-position="tl"] {
@@ -370,6 +377,16 @@ body[data-state="disperse"] #container-1::before {
   bottom: 0;
   right: 0;
 }
+
+/* Each label glows blue-grey by default and turns ITS quadrant colour only
+   while that quadrant is hovered on the interface — which forwards the hovered
+   index via `set-corner-label-hover`, toggling the `.hovered` class (see
+   commands.js). Same palette as interface_nuxt's app.vue. The text-shadow
+   transition fades the change. */
+.corner-label.hovered[data-position="tl"] { --corner-glow: #f0a05c; } /* Source — orange */
+.corner-label.hovered[data-position="tr"] { --corner-glow: #6cb4e6; } /* Form — sky blue */
+.corner-label.hovered[data-position="bl"] { --corner-glow: #74cf92; } /* Semantic — green */
+.corner-label.hovered[data-position="br"] { --corner-glow: #ef82ac; } /* Time — pink */
 
 /* Visibility gated by an explicit wire directive (`set-corner-labels`)
    instead of `body[data-state]`. interface_nuxt holds the labels back
@@ -420,18 +437,19 @@ body:not([data-state="single"]) .corner-label.visible {
   /* The glyph stroke (text-shadow) transitions so the VIEW_4 per-quadrant hover
      colour fades — set-corner-label-hover tints the HALO, not the fill. */
   transition: opacity 600ms ease-out, text-shadow 220ms ease-out;
-  /* Blue glyph stroke — same effect as every other project text type
-     (--rotate-panel-bg), replacing the old warm cream halo. */
+  /* Layered glyph glow — `--corner-glow` (coloured per quadrant on .corner-label
+     via the [data-position] rules), else the neutral blue-grey stroke. The
+     map-label has no --corner-glow set, so it falls back to blue-grey. */
   text-shadow:
-    0 0 4px var(--rotate-panel-bg),
-    0 0 6px var(--rotate-panel-bg),
-    0 0 6px var(--rotate-panel-bg),
-    0 0 9px var(--rotate-panel-bg),
-    0 0 9px var(--rotate-panel-bg),
-    0 0 12px var(--rotate-panel-bg),
-    0 0 12px var(--rotate-panel-bg),
-    0 0 15px var(--rotate-panel-bg),
-    0 0 18px var(--rotate-panel-bg);
+    0 0 4px var(--corner-glow, var(--rotate-panel-bg)),
+    0 0 6px var(--corner-glow, var(--rotate-panel-bg)),
+    0 0 6px var(--corner-glow, var(--rotate-panel-bg)),
+    0 0 9px var(--corner-glow, var(--rotate-panel-bg)),
+    0 0 9px var(--corner-glow, var(--rotate-panel-bg)),
+    0 0 12px var(--corner-glow, var(--rotate-panel-bg)),
+    0 0 12px var(--corner-glow, var(--rotate-panel-bg)),
+    0 0 15px var(--corner-glow, var(--rotate-panel-bg)),
+    0 0 18px var(--corner-glow, var(--rotate-panel-bg));
 }
 
 .explore-map-label.visible {
@@ -506,21 +524,27 @@ body:not([data-state="single"]) .corner-label.visible {
      `.quadrant-text.dissolving`, so the per-quadrant text fades in/out with the
      same soft fade on both screens. */
   transition: opacity 500ms ease;
-  /* Organic blue-grey glyph stroke — mirrors interface_nuxt's
-     `.proximity-panel` (same --rotate-panel-bg layered text-shadow the rotate
-     captions use). Inherited, so it covers both `.canvas-text-title` and
-     `.canvas-text-body`. */
+  /* Layered glyph stroke — coloured per quadrant via `--canvas-glow` (set on
+     the `[data-canvas]` rules below), else the neutral blue-grey. Inherited, so
+     it covers both `.canvas-text-title` and `.canvas-text-body`. Mirrors
+     interface_nuxt's `.proximity-panel`. */
   text-shadow:
-    0 0 4px var(--rotate-panel-bg),
-    0 0 6px var(--rotate-panel-bg),
-    0 0 6px var(--rotate-panel-bg),
-    0 0 9px var(--rotate-panel-bg),
-    0 0 9px var(--rotate-panel-bg),
-    0 0 12px var(--rotate-panel-bg),
-    0 0 12px var(--rotate-panel-bg),
-    0 0 15px var(--rotate-panel-bg),
-    0 0 18px var(--rotate-panel-bg);
+    0 0 4px var(--canvas-glow, var(--rotate-panel-bg)),
+    0 0 6px var(--canvas-glow, var(--rotate-panel-bg)),
+    0 0 6px var(--canvas-glow, var(--rotate-panel-bg)),
+    0 0 9px var(--canvas-glow, var(--rotate-panel-bg)),
+    0 0 9px var(--canvas-glow, var(--rotate-panel-bg)),
+    0 0 12px var(--canvas-glow, var(--rotate-panel-bg)),
+    0 0 12px var(--canvas-glow, var(--rotate-panel-bg)),
+    0 0 15px var(--canvas-glow, var(--rotate-panel-bg)),
+    0 0 18px var(--canvas-glow, var(--rotate-panel-bg));
 }
+/* Per-quadrant glyph glow for the per-canvas interpretation text — same palette
+   as the corner labels (canvas 0 Source orange … 3 Time pink). */
+.canvas-text[data-canvas="0"] { --canvas-glow: #f0a05c; }
+.canvas-text[data-canvas="1"] { --canvas-glow: #6cb4e6; }
+.canvas-text[data-canvas="2"] { --canvas-glow: #74cf92; }
+.canvas-text[data-canvas="3"] { --canvas-glow: #ef82ac; }
 /* Semantic (canvas index 2 = bl) body is the longest — give it a wider box so
    it settles onto two lines instead of three. Feedback-only; mirrors the
    interface's Semantic widening (.proximity-panel[data-component="component_3"]). */

@@ -88,6 +88,11 @@ export function createPathTrace({ scene, points }) {
     // BEHIND the highlighted/marked sprites (z-lifted to 0.01–0.03 in
     // pointsManager) and above the un-lit ones — the line tucks behind the
     // highlighted image, as intended.
+    // renderOrder above the image glow (pointsManager focus/hoverGlow, default
+    // renderOrder 0, additive at z 0.004) so the path draws AFTER it and isn't
+    // washed by it. depthTest still keeps it behind the sprites (the glow has
+    // depthWrite:false, so it can't occlude the path).
+    mesh.renderOrder = 2;
     scene.add(mesh);
 
     const glowMat = new THREE.ShaderMaterial({
@@ -138,6 +143,11 @@ export function createPathTrace({ scene, points }) {
     const ghostMesh = new LineSegments2(ghostGeometry, ghostMaterial);
     ghostMesh.frustumCulled = false;
     ghostMesh.visible = false;
+    // Same as the committed path: render ABOVE the image glow so the hover
+    // SUGGESTION line isn't washed by it (the ghost sits at GHOST_Z 0.004, the
+    // exact z of the image glow, so without this they'd tie and the additive
+    // glow would bleed over it). depthTest still tucks it behind the sprites.
+    ghostMesh.renderOrder = 2;
     scene.add(ghostMesh);
 
     let ghostFromId = null;

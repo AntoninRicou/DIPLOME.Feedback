@@ -175,25 +175,28 @@ export function createCommands(apps, stateManager, pathPlayer, mapWords) {
     const el = document.querySelector(`#container-${i + 1} .corner-label`);
     if (!el) return;
     el.classList.toggle('visible', visible);
+    // VIEW_3 reveals each label per-quadrant as that quadrant is reached —
+    // colour it then (matching the quadrant text). VIEW_4 reveals all four via
+    // the plural `set-corner-labels` (no colour) + hover instead, and
+    // enterRelationalView clears `.hovered` on entry so VIEW_4 starts blue-grey.
+    el.classList.toggle('hovered', visible);
   }
 
-  // Tint the hovered quadrant's corner-label HALO (the glyph stroke) with that
-  // quadrant's colour — mirrors the interface `.rel:hover .corner-label`. The
-  // word FILL stays #595b55; only the text-shadow is recoloured. `index` 0..3
-  // = that quadrant's colour (shared path palette via colorForQuadrant);
-  // null/-1 resets every label to its CSS default blue stroke. The
-  // `.corner-label` text-shadow transition fades the change. Pure DOM mutation.
+  // Tint the hovered quadrant's corner-label glow with that quadrant's relation
+  // colour — mirrors the interface `.rel:hover .corner-label`. Toggles a
+  // `.hovered` class on the one corner label; the colour itself lives in CSS
+  // (`.corner-label.hovered[data-position]`, same palette as interface_nuxt),
+  // so the FILL stays #595b55 and only the glow recolours, fading via the
+  // `.corner-label` text-shadow transition. `index` 0..3 hovers; null/-1 clears.
   function setCornerLabelHover(payload) {
     const i = payload?.index;
-    document.querySelectorAll('.corner-label').forEach((el) => { el.style.textShadow = ''; });
+    const all = document.querySelectorAll('.corner-label');
+    all.forEach((el) => el.classList.remove('hovered'));
+    // 'all' → colour every label (central-image hover); a number → just that one.
+    if (i === 'all') { all.forEach((el) => el.classList.add('hovered')); return; }
     if (typeof i !== 'number' || i < 0 || i > 3) return;
     const el = document.querySelector(`#container-${i + 1} .corner-label`);
-    if (!el) return;
-    const c = colorForQuadrant(i) >>> 0;
-    const hex = '#' + c.toString(16).padStart(6, '0');
-    el.style.textShadow = [4, 6, 6, 9, 9, 12, 12, 15, 18]
-      .map((r) => `0 0 ${r}px ${hex}`)
-      .join(', ');
+    if (el) el.classList.add('hovered');
   }
 
   // Fullscreen-centred caption — drops a single string into

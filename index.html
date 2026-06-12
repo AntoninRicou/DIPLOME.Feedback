@@ -21,7 +21,9 @@
     #center-caption,
     /* The cursor hint (standalone-only) also flashes its raw text at top-left
        during the VIEW_2 embed iframe load before style.css sets opacity:0. */
-    #cursor-hint { opacity: 0; }
+    #cursor-hint {
+      opacity: 0;
+    }
   </style>
 </head>
 
@@ -77,7 +79,7 @@
        tells the operator to move it back to the interface screen. Shown
        whenever the mouse is over this (fullscreen) feedback display; wired in
        main.js, guarded to the non-embed path. -->
-  <div id="cursor-hint" aria-hidden="true">Bring the cursor top right</div>
+  <div id="cursor-hint" aria-hidden="true">Bring the cursor in the bottom left corner</div>
   <script type="module" src="/src/main.js"></script>
 </body>
 
