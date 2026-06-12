@@ -60,6 +60,14 @@ function main() {
     window.addEventListener('message', (e) => {
       if (e?.data?.type === 'view0:enable-hover') {
         hoverArmed = true;
+      } else if (e?.data?.type === 'view0:set-bg') {
+        // Parent (VIEW_2) forwards the interface day/night toggle so the embed's
+        // disperse backdrop matches. The embed is off the relay, so it can't get
+        // `set-canvas-bg` — this postMessage is the equivalent channel.
+        const mode = e.data.mode;
+        if (mode === 'black' || mode === 'gradient') {
+          document.body.dataset.canvasBg = mode;
+        }
       }
     });
   }

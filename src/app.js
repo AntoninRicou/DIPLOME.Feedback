@@ -243,10 +243,10 @@ function app({ container, id, mapType, state, appIsReady }) {
         if (pathTrace) pathTrace.clear();
     }
 
-    function setGhostPath(fromId, toId) {
+    function setGhostPath(fromId, toId, color) {
         if (!pathTrace) return;
         if (!fromId || !toId) pathTrace.clearGhost();
-        else pathTrace.setGhost(fromId, toId);
+        else pathTrace.setGhost(fromId, toId, color);
     }
 
     function resetFocus() {

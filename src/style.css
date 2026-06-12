@@ -275,15 +275,15 @@ body[data-state="disperse"] #container-1::before {
   pointer-events: none;
   background:
     linear-gradient(to bottom,
-      transparent calc(50% - 0.5px),
-      rgba(166, 154, 128, 0.85) calc(50% - 0.5px),
-      rgba(166, 154, 128, 0.85) calc(50% + 0.5px),
-      transparent calc(50% + 0.5px)),
+      transparent calc(50% - 0.6px),
+      rgba(166, 154, 128, 0.85) calc(50% - 0.6px),
+      rgba(166, 154, 128, 0.85) calc(50% + 0.6px),
+      transparent calc(50% + 0.6px)),
     linear-gradient(to right,
-      transparent calc(50% - 0.5px),
-      rgba(166, 154, 128, 0.85) calc(50% - 0.5px),
-      rgba(166, 154, 128, 0.85) calc(50% + 0.5px),
-      transparent calc(50% + 0.5px));
+      transparent calc(50% - 0.6px),
+      rgba(166, 154, 128, 0.85) calc(50% - 0.6px),
+      rgba(166, 154, 128, 0.85) calc(50% + 0.6px),
+      transparent calc(50% + 0.6px));
 }
 
 /* Interpretation veil — beige blurred overlay mirroring interface_nuxt's

@@ -24,28 +24,33 @@ const GLOW_COLOR = 0xf9ecd0;
 // backdrops. Solid translucent line. Appears instant on hover, fades
 // out over ~150ms on hover-leave (driven by GHOST_FADE_RATE).
 const GHOST_COLOR = 0xf9ecd0;
-const GHOST_OPACITY = 0.6;
+const GHOST_OPACITY = 1.0; // fully opaque so the coloured hover line reads clearly
 const GHOST_FADE_RATE = 16;
 const GHOST_Z = 0.004;
 
 const GLOW_VS = /* glsl */ `
+    attribute vec3 aGlowColor;
     varying vec2 vUv;
+    varying vec3 vGlowColor;
     void main() {
         vUv = uv;
+        vGlowColor = aGlowColor;
         gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(position, 1.0);
     }
 `;
 const GLOW_FS = /* glsl */ `
     precision highp float;
     varying vec2 vUv;
-    uniform vec3 uColor;
+    varying vec3 vGlowColor;
     uniform float uOpacity;
     uniform float uEdge;
     void main() {
         float d = distance(vUv, vec2(0.5));
         float ring = exp(-pow((d - uEdge) * 9.0, 2.0));
         float fade = 1.0 - smoothstep(0.4, 0.5, d);
-        gl_FragColor = vec4(uColor, ring * fade * uOpacity);
+        // Per-node colour (the quadrant colour of the arriving segment) so the
+        // glow matches the line core instead of a single cream white.
+        gl_FragColor = vec4(vGlowColor, ring * fade * uOpacity);
     }
 `;
 
@@ -79,13 +84,16 @@ export function createPathTrace({ scene, points }) {
     const mesh = new LineSegments2(geometry, material);
     mesh.frustumCulled = false;
     mesh.visible = false;
+    // Default depth-testing: the line sits at LINE_Z (0.005), so it renders
+    // BEHIND the highlighted/marked sprites (z-lifted to 0.01–0.03 in
+    // pointsManager) and above the un-lit ones — the line tucks behind the
+    // highlighted image, as intended.
     scene.add(mesh);
 
     const glowMat = new THREE.ShaderMaterial({
         vertexShader: GLOW_VS,
         fragmentShader: GLOW_FS,
         uniforms: {
-            uColor: { value: new THREE.Color(GLOW_COLOR) },
             uOpacity: { value: GLOW_OPACITY },
             uEdge: { value: 3.0 / (2.0 * GLOW_FACTOR) },
         },
@@ -93,7 +101,12 @@ export function createPathTrace({ scene, points }) {
         blending: THREE.AdditiveBlending,
         depthWrite: false,
     });
-    const glowMesh = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1), glowMat, GLOW_CAPACITY);
+    // Per-instance glow colour (filled from each node's quadrant colour in the
+    // tick) so the glow trail matches the line core, not a single cream white.
+    const glowGeo = new THREE.PlaneGeometry(1, 1);
+    const glowColorArr = new Float32Array(GLOW_CAPACITY * 3);
+    glowGeo.setAttribute('aGlowColor', new THREE.InstancedBufferAttribute(glowColorArr, 3));
+    const glowMesh = new THREE.InstancedMesh(glowGeo, glowMat, GLOW_CAPACITY);
     glowMesh.count = 0;
     glowMesh.frustumCulled = false;
     scene.add(glowMesh);
@@ -101,17 +114,28 @@ export function createPathTrace({ scene, points }) {
     const tmpColor = new THREE.Color();
     const dummy = new THREE.Object3D();
     const visited = new Set();
+    // Per-node colour for the glow: a node takes the quadrant colour of the
+    // segment that ARRIVES at it (its clicked-image colour); the very first node
+    // falls back to its outgoing segment's colour. Rebuilt each tick.
+    const nodeColor = new Map();
 
-    // Ghost-path mesh — one dashed line segment, hidden until setGhost
-    // populates it. Allocated up-front so hover-in is allocation-free.
-    const ghostGeometry = new THREE.BufferGeometry();
-    ghostGeometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3));
-    const ghostMaterial = new THREE.LineBasicMaterial({
+    // Ghost-path mesh — one hover-feedback segment, hidden until setGhost
+    // populates it. A FAT line (LineSegments2 / LineMaterial) so its thickness
+    // matches the committed path (PATH_LINEWIDTH) — plain THREE.Line clamps to
+    // 1px on desktop. Endpoints written in-place each tick via ghostPosBuffer.
+    const ghostPosArr = new Float32Array(6); // one segment: xyz, xyz
+    const ghostGeometry = new LineSegmentsGeometry();
+    ghostGeometry.setPositions(ghostPosArr);
+    ghostGeometry.instanceCount = 1;
+    const ghostPosBuffer = ghostGeometry.getAttribute('instanceStart').data;
+    const ghostMaterial = new LineMaterial({
         color: GHOST_COLOR,
         transparent: true,
         opacity: 0,
+        linewidth: PATH_LINEWIDTH,
     });
-    const ghostMesh = new THREE.Line(ghostGeometry, ghostMaterial);
+    ghostMaterial.resolution.set(window.innerWidth, window.innerHeight);
+    const ghostMesh = new LineSegments2(ghostGeometry, ghostMaterial);
     ghostMesh.frustumCulled = false;
     ghostMesh.visible = false;
     scene.add(ghostMesh);
@@ -157,7 +181,7 @@ export function createPathTrace({ scene, points }) {
         ghostMesh.visible = false;
     }
 
-    function setGhost(fromId, toId) {
+    function setGhost(fromId, toId, color) {
         // Empty pair clears — fade out, keep last endpoints so the line
         // fades in place rather than snapping to origin.
         if (!fromId || !toId) {
@@ -167,6 +191,10 @@ export function createPathTrace({ scene, points }) {
         ghostFromId = fromId;
         ghostToId = toId;
         ghostTarget = 1;
+        // Tint the hover line with the hovered quadrant's relation colour
+        // (Source orange / Form blue / Semantic green / Time pink). Falls back
+        // to the cream GHOST_COLOR when no quadrant colour is supplied.
+        ghostMaterial.color.setHex(typeof color === 'number' ? color : GHOST_COLOR);
         // Instant appear: snap opacity to full so the line is visible on
         // the same frame as the hover. Fade is only used on hover-out.
         ghostOpacity = 1;
@@ -200,6 +228,7 @@ export function createPathTrace({ scene, points }) {
         // pre-allocated fat-line buffers, then grow instanceCount to match.
         let n = 0;
         visited.clear();
+        nodeColor.clear();
         for (const s of segments) {
             if (n >= MAX_SEGMENTS * 6) break;
             const a = points.getPosition(s.fromId);
@@ -215,7 +244,10 @@ export function createPathTrace({ scene, points }) {
             colArr[n + 3] = tmpColor.r; colArr[n + 4] = tmpColor.g; colArr[n + 5] = tmpColor.b;
             n += 6;
             visited.add(s.fromId);
-            if (t >= 0.999) visited.add(s.toId);
+            // Start node keeps its first outgoing colour; every node the path
+            // arrives at takes that arriving segment's (clicked-image) colour.
+            if (!nodeColor.has(s.fromId)) nodeColor.set(s.fromId, s.color);
+            if (t >= 0.999) { visited.add(s.toId); nodeColor.set(s.toId, s.color); }
         }
         posBuffer.needsUpdate = true;
         colBuffer.needsUpdate = true;
@@ -234,10 +266,17 @@ export function createPathTrace({ scene, points }) {
             dummy.rotation.set(0, 0, 0);
             dummy.updateMatrix();
             glowMesh.setMatrixAt(g, dummy.matrix);
+            // Tint this node's glow with its quadrant colour (fallback to the
+            // legacy cream if a node somehow has no recorded colour).
+            tmpColor.setHex(nodeColor.has(id) ? nodeColor.get(id) : GLOW_COLOR);
+            glowColorArr[g * 3] = tmpColor.r;
+            glowColorArr[g * 3 + 1] = tmpColor.g;
+            glowColorArr[g * 3 + 2] = tmpColor.b;
             g++;
         }
         glowMesh.count = g;
         glowMesh.instanceMatrix.needsUpdate = true;
+        glowGeo.getAttribute('aGlowColor').needsUpdate = true;
 
         // Ghost-path update. Position tracks the current camera-projected
         // points each tick (the camera may pan or the disperse field may
@@ -247,10 +286,9 @@ export function createPathTrace({ scene, points }) {
             const a = ghostFromId ? points.getPosition(ghostFromId) : null;
             const b = ghostToId ? points.getPosition(ghostToId) : null;
             if (a && b) {
-                const arr = ghostGeometry.attributes.position.array;
-                arr[0] = a.x; arr[1] = a.y; arr[2] = GHOST_Z;
-                arr[3] = b.x; arr[4] = b.y; arr[5] = GHOST_Z;
-                ghostGeometry.attributes.position.needsUpdate = true;
+                ghostPosArr[0] = a.x; ghostPosArr[1] = a.y; ghostPosArr[2] = GHOST_Z;
+                ghostPosArr[3] = b.x; ghostPosArr[4] = b.y; ghostPosArr[5] = GHOST_Z;
+                ghostPosBuffer.needsUpdate = true;
             } else {
                 // One or both endpoints not in this canvas's dataset —
                 // hide silently. Apps with mismatched data shouldn't
@@ -278,7 +316,10 @@ export function createPathTrace({ scene, points }) {
     // Keep the fat-line material's resolution in sync with the canvas pixel
     // size so PATH_LINEWIDTH renders at the intended screen thickness.
     function setResolution(width, height) {
-        if (width > 0 && height > 0) material.resolution.set(width, height);
+        if (width > 0 && height > 0) {
+            material.resolution.set(width, height);
+            ghostMaterial.resolution.set(width, height);
+        }
     }
 
     // Fade the path line + glow to invisible over `durationSec` seconds.

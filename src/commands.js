@@ -333,8 +333,12 @@ export function createCommands(apps, stateManager, pathPlayer, mapWords) {
   function setGhostPath(payload) {
     const fromId = payload && typeof payload.fromId === 'string' ? payload.fromId : null;
     const toId = payload && typeof payload.toId === 'string' ? payload.toId : null;
+    // Colour the hover line by the hovered cell's quadrant (same shared palette
+    // as the committed path). No quadrant → undefined → cream fallback.
+    const quadrant = payload && typeof payload.quadrant === 'number' ? payload.quadrant : undefined;
+    const color = quadrant !== undefined ? colorForQuadrant(quadrant) : undefined;
     apps.forEach(a => {
-      if (a.isReady && a.object.setGhostPath) a.object.setGhostPath(fromId, toId);
+      if (a.isReady && a.object.setGhostPath) a.object.setGhostPath(fromId, toId, color);
     });
   }
 

@@ -122,15 +122,29 @@ function createPointsManager({ scene, data, atlas, atlasTexture, spread = 5, thu
             gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
         }
     `;
+    // Glow halo colour — a radial GRADIENT from a bright white core out to the
+    // blueish-grey rotate-text stroke colour (`--rotate-panel-bg` ≈ #afb4bc) at
+    // the rim. The white core keeps the additive "enlighten" effect; the rim
+    // gives the halo the blue-grey cast. Tune GLOW_CORE / GLOW_EDGE to taste.
+    const GLOW_CORE_COLOR = 0xdde2ec; // cool light blue-grey centre (a touch greyer than near-white, still lights)
+    const GLOW_EDGE_COLOR = 0xa6acba; // blueish-grey body/rim (matches --rotate-panel-bg family)
     const GLOW_FS = /* glsl */ `
         precision highp float;
         varying vec2 vUv;
-        uniform vec3 uColor;
+        uniform vec3 uColor;      // bright white core
+        uniform vec3 uColorEdge;  // blueish-grey rim
         uniform float uOpacity;
         void main() {
             float d = distance(vUv, vec2(0.5));
-            float a = pow(1.0 - smoothstep(0.0, 0.5, d), 1.6);
-            gl_FragColor = vec4(uColor, a * uOpacity);
+            // Lower exponent → broader, stronger glow (slower falloff).
+            float a = pow(1.0 - smoothstep(0.0, 0.5, d), 1.3);
+            // ONE smooth ramp across the whole glow (no hard white core / ring):
+            // cool near-white centre easing continuously into the blue-grey body.
+            float t = smoothstep(0.0, 0.5, d);
+            // Mild boost keeps the glow strong while NOT re-whitening the
+            // (now greyer) centre back to a clamped pure white.
+            vec3 col = mix(uColor, uColorEdge, t) * 1.08;
+            gl_FragColor = vec4(col, a * uOpacity);
         }
     `;
 
@@ -146,7 +160,8 @@ function createPointsManager({ scene, data, atlas, atlasTexture, spread = 5, thu
             vertexShader: GLOW_VS,
             fragmentShader: GLOW_FS,
             uniforms: {
-                uColor: { value: new THREE.Color(0xffffff) },
+                uColor: { value: new THREE.Color(GLOW_CORE_COLOR) },
+                uColorEdge: { value: new THREE.Color(GLOW_EDGE_COLOR) },
                 uOpacity: { value: 1.0 },
             },
             transparent: true,

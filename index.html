@@ -18,7 +18,10 @@
     .corner-label,
     .canvas-text,
     .explore-map-label,
-    #center-caption { opacity: 0; }
+    #center-caption,
+    /* The cursor hint (standalone-only) also flashes its raw text at top-left
+       during the VIEW_2 embed iframe load before style.css sets opacity:0. */
+    #cursor-hint { opacity: 0; }
   </style>
 </head>
 
